@@ -4,11 +4,11 @@ from pydantic import BaseModel
 class DbConfig(BaseModel):
     DB_ECHO: bool = False
 
-    POSTGRES_USER: str = "sentra_user"
-    POSTGRES_PASSWORD: str = 123
-    POSTGRES_DB: str = "sentra_db"
-    POSTGRES_PORT: int = 5433
-    POSTGRES_HOST: str = "localhost"
+    POSTGRES_USER: str = "sentra"
+    POSTGRES_PASSWORD: str = "password"
+    POSTGRES_DB: str = "sentra"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_HOST: str = "db"
 
     @property
     def database_url(self) -> str:
