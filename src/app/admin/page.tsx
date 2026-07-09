@@ -28,6 +28,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type EmployeeStatus = "Enabled" | "Disabled";
+type EmployeeApiStatus = "active" | "inactive" | "needs_setup";
 type DocumentStatus = "Uploaded" | "Processing" | "Ready" | "Error";
 type ConversationStatus = "AI" | "Human" | "Closed" | "Needs human";
 type EmployeeTab = "Overview" | "Knowledge" | "Telegram" | "Test Chat" | "Conversations" | "Settings";
@@ -53,8 +54,14 @@ type EmployeeResponse = {
   id: number;
   name: string;
   role: string;
+  business_description: string | null;
   language: string;
   tone: string;
+  instruction: string;
+  fallback_message: string;
+  status: EmployeeApiStatus;
+  created_at: string;
+  updated_at: string | null;
 };
 
 type TelegramChannelResponse = {
@@ -63,6 +70,7 @@ type TelegramChannelResponse = {
   external_username: string | null;
   status: "connected" | "disconnected" | "error";
   created_at: string;
+  connected_at: string | null;
 };
 
 type TelegramConnectionResponse = {
@@ -290,23 +298,45 @@ function mapKnowledgeFile(file: KnowledgeFileResponse): KnowledgeDocument {
   };
 }
 
+function mapEmployeeStatus(status: EmployeeApiStatus): EmployeeStatus {
+  return status === "active" ? "Enabled" : "Disabled";
+}
+
+function mapEmployeeStatusForApi(status: EmployeeStatus): EmployeeApiStatus {
+  return status === "Enabled" ? "active" : "inactive";
+}
+
 function mapEmployee(employee: EmployeeResponse): Employee {
   return {
     id: employee.id,
     name: employee.name,
     role: employee.role,
-    businessDescription: "",
+    businessDescription: employee.business_description ?? "",
     language: employee.language,
     tone: employee.tone,
-    workInstruction: "",
-    fallbackMessage: "Я пока не уверен в ответе. Передам вопрос человеку из команды.",
-    status: "Enabled",
+    workInstruction: employee.instruction,
+    fallbackMessage: employee.fallback_message,
+    status: mapEmployeeStatus(employee.status),
     telegramConnected: false,
     activeDialogs: 0,
     humanPending: 0,
     documents: [],
     conversations: [],
     testMessages: []
+  };
+}
+
+function mergeEmployeeResponse(current: Employee, employee: EmployeeResponse): Employee {
+  return {
+    ...current,
+    name: employee.name,
+    role: employee.role,
+    businessDescription: employee.business_description ?? "",
+    language: employee.language,
+    tone: employee.tone,
+    workInstruction: employee.instruction,
+    fallbackMessage: employee.fallback_message,
+    status: mapEmployeeStatus(employee.status)
   };
 }
 
@@ -390,13 +420,27 @@ export default function AdminPage() {
     setToast(`${employee.name} нанят`);
   }
 
-  function deleteEmployee(id: number) {
+  async function deleteEmployee(id: number) {
     if (!window.confirm("Удалить сотрудника? Это действие нельзя отменить.")) return;
-    const nextEmployees = employees.filter((employee) => employee.id !== id);
-    setEmployees(nextEmployees);
-    setSelectedEmployeeId(nextEmployees[0]?.id ?? 0);
-    setScreen("workspace");
-    setToast("Сотрудник удален");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
+        method: "DELETE",
+        headers: authHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Не удалось удалить сотрудника"));
+      }
+
+      const nextEmployees = employees.filter((employee) => employee.id !== id);
+      setEmployees(nextEmployees);
+      setSelectedEmployeeId(nextEmployees[0]?.id ?? 0);
+      setScreen("workspace");
+      setToast("Сотрудник удален");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Не удалось удалить сотрудника");
+    }
   }
 
   return (
@@ -778,7 +822,7 @@ function EmployeeWorkspace({
           ))}
         </div>
       </div>
-      {activeTab === "Overview" && <Overview employee={employee} onUpdate={onUpdate} />}
+      {activeTab === "Overview" && <Overview employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Knowledge" && <Knowledge employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Telegram" && <Telegram employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Test Chat" && <TestChat employee={employee} onUpdate={onUpdate} />}
@@ -788,7 +832,48 @@ function EmployeeWorkspace({
   );
 }
 
-function Overview({ employee, onUpdate }: { employee: Employee; onUpdate: (updater: (employee: Employee) => Employee) => void }) {
+function Overview({
+  employee,
+  onUpdate,
+  setToast
+}: {
+  employee: Employee;
+  onUpdate: (updater: (employee: Employee) => Employee) => void;
+  setToast: (message: string) => void;
+}) {
+  const [action, setAction] = useState<EmployeeStatus | null>(null);
+  const [error, setError] = useState("");
+
+  async function changeStatus(status: EmployeeStatus) {
+    try {
+      setError("");
+      setAction(status);
+
+      const response = await fetch(`${API_BASE_URL}/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders()
+        },
+        body: JSON.stringify({
+          status: mapEmployeeStatusForApi(status)
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Не удалось изменить статус сотрудника"));
+      }
+
+      const updatedEmployee = (await response.json()) as EmployeeResponse;
+      onUpdate((current) => mergeEmployeeResponse(current, updatedEmployee));
+      setToast(status === "Enabled" ? "Сотрудник включен" : "Сотрудник отключен");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить статус сотрудника");
+    } finally {
+      setAction(null);
+    }
+  }
+
   return (
     <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -806,15 +891,26 @@ function Overview({ employee, onUpdate }: { employee: Employee; onUpdate: (updat
           <SmallStat label="Ждут человека" value={String(employee.humanPending)} />
         </div>
         <div className="mt-6 flex gap-3">
-          <button className="btn-primary" onClick={() => onUpdate((current) => ({ ...current, status: "Enabled" }))} type="button">
+          <button
+            className="btn-primary"
+            disabled={action !== null || employee.status === "Enabled"}
+            onClick={() => changeStatus("Enabled")}
+            type="button"
+          >
             <Check size={17} />
-            Включить сотрудника
+            {action === "Enabled" ? "Включаем..." : "Включить сотрудника"}
           </button>
-          <button className="btn-secondary" onClick={() => onUpdate((current) => ({ ...current, status: "Disabled" }))} type="button">
+          <button
+            className="btn-secondary"
+            disabled={action !== null || employee.status === "Disabled"}
+            onClick={() => changeStatus("Disabled")}
+            type="button"
+          >
             <Circle size={17} />
-            Отключить сотрудника
+            {action === "Disabled" ? "Отключаем..." : "Отключить сотрудника"}
           </button>
         </div>
+        {error && <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <FormHeader title="Рабочий профиль" subtitle="Сотрудник ведет себя как цифровой член команды, а не как обычный чат-бот." />
@@ -1076,7 +1172,7 @@ function Telegram({
         ...current,
         telegramConnected: channel.status === "connected",
         telegramBotUsername: formatTelegramUsername(channel.external_username),
-        telegramConnectedAt: formatDateTime(channel.created_at)
+        telegramConnectedAt: channel.connected_at ? formatDateTime(channel.connected_at) : formatDateTime(channel.created_at)
       }));
 
       setToast("Telegram подключен");
@@ -1339,9 +1435,47 @@ function EmployeeSettings({
     workInstruction: employee.workInstruction,
     fallbackMessage: employee.fallbackMessage
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
 
   function setField<K extends keyof EmployeeForm>(key: K, value: EmployeeForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function saveSettings() {
+    try {
+      setError("");
+      setIsSaving(true);
+
+      const response = await fetch(`${API_BASE_URL}/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders()
+        },
+        body: JSON.stringify({
+          name: form.name,
+          role: form.role,
+          business_description: form.businessDescription,
+          language: form.language,
+          tone: form.tone,
+          instruction: form.workInstruction,
+          fallback_message: form.fallbackMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Не удалось сохранить изменения"));
+      }
+
+      const updatedEmployee = (await response.json()) as EmployeeResponse;
+      onUpdate((current) => mergeEmployeeResponse(current, updatedEmployee));
+      setToast("Изменения сохранены");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось сохранить изменения");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -1351,8 +1485,7 @@ function EmployeeSettings({
         className="grid gap-5 lg:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
-          onUpdate((current) => ({ ...current, ...form }));
-          setToast("Изменения сохранены");
+          void saveSettings();
         }}
       >
         <Field label="Имя сотрудника">
@@ -1376,10 +1509,11 @@ function EmployeeSettings({
         <Field className="lg:col-span-2" label="Сообщение при отсутствии ответа">
           <textarea className="textarea" onChange={(event) => setField("fallbackMessage", event.target.value)} value={form.fallbackMessage} />
         </Field>
+        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 lg:col-span-2">{error}</p>}
         <div className="flex flex-wrap justify-between gap-3 lg:col-span-2">
-          <button className="btn-primary" type="submit">
+          <button className="btn-primary" disabled={isSaving} type="submit">
             <Check size={17} />
-            Сохранить изменения
+            {isSaving ? "Сохраняем..." : "Сохранить изменения"}
           </button>
           <button className="btn-danger" onClick={onDelete} type="button">
             <Trash2 size={17} />

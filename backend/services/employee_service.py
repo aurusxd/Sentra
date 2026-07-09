@@ -29,6 +29,7 @@ class EmployeeService:
     async def create(self, owner_id: int, data: EmployeeCreate):
         employee = Employee(
             owner_id=owner_id,
+            status="active",
             **data.model_dump(),
         )
 

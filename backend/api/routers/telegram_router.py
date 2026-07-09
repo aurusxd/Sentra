@@ -79,8 +79,10 @@ async def check_telegram(
 
     bot_info = await telegram_service.get_me(token=token)
 
+    connected = channel.status == "connected"
+
     return {
-        "connected": True,
+        "connected": connected,
         "bot_name": bot_info.get("first_name"),
         "bot_username": bot_info.get("username"),
         "status": channel.status,

@@ -13,7 +13,10 @@ class EmployeeRepository:
         session: AsyncSession,
     ) -> list[Employee]:
         result = await session.execute(
-            select(Employee).where(Employee.owner_id == owner_id)
+            select(Employee).where(
+                Employee.owner_id == owner_id,
+                Employee.is_deleted.is_(False),
+            )
         )
         return list(result.scalars().all())
 
@@ -28,6 +31,7 @@ class EmployeeRepository:
             select(Employee).where(
                 Employee.id == employee_id,
                 Employee.owner_id == owner_id,
+                Employee.is_deleted.is_(False),
             )
         )
         return result.scalar_one_or_none()

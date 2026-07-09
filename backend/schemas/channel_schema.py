@@ -33,6 +33,7 @@ class ChannelRead(BaseModel):
     status: ChannelStatus
 
     created_at: datetime
+    connected_at: datetime | None
 
     model_config = ConfigDict(
         from_attributes=True,

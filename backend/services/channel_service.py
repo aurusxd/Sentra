@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 
 from backend.database.models.channel import Channel
@@ -45,21 +47,31 @@ class ChannelService:
             external_id=str(bot_id),
         )
 
-        if existing_channel is not None:
+        employee_channel = await self.repository.get_telegram_by_employee_id(
+            employee_id=employee_id,
+        )
+
+        if existing_channel is not None and existing_channel.employee_id != employee_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This bot is already connected",
             )
 
-        employee_channel = await self.repository.get_telegram_by_employee_id(
-            employee_id=employee_id,
-        )
-
         if employee_channel is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="This employee already has a Telegram channel",
-            )
+            if existing_channel is not None and existing_channel.id != employee_channel.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This employee already has another Telegram channel",
+                )
+
+            employee_channel.token_encrypted = encrypt_token(data.token)
+            employee_channel.external_id = str(bot_id)
+            employee_channel.external_username = bot_username
+            employee_channel.webhook_secret = employee_channel.webhook_secret or generate_webhook_secret()
+            employee_channel.status = ChannelStatus.CONNECTED
+            employee_channel.connected_at = datetime.now(timezone.utc)
+
+            return await self.repository.update(channel=employee_channel)
 
         channel = Channel(
             employee_id=employee_id,
@@ -69,6 +81,7 @@ class ChannelService:
             external_username=bot_username,
             webhook_secret=generate_webhook_secret(),
             status=ChannelStatus.CONNECTED,
+            connected_at=datetime.now(timezone.utc),
         )
 
         return await self.repository.create(channel=channel)
@@ -99,6 +112,7 @@ class ChannelService:
             )
 
         channel.status = ChannelStatus.DISCONNECTED
+        channel.connected_at = None
 
         return await self.repository.update(channel=channel)
 
