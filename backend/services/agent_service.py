@@ -76,7 +76,7 @@ async def ask_agent(
 
         messages.append(message)
 
-        return message
+        return message.content
     except Exception:
         log.exception("Message not created")
 
