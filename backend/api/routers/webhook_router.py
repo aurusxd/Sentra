@@ -11,6 +11,7 @@ from backend.services.message_service import message_service
 from backend.services.telegram_service import TelegramService
 from backend.services.vector_store_service import vector_store_service
 from backend.utils.toeken_crypto import decrypt_token
+from backend.utils.logger import log
 
 router = APIRouter(
     prefix="/telegram",
@@ -37,6 +38,7 @@ async def telegram_webhook(
         )
 
     if channel.status != ChannelStatus.CONNECTED:
+        log.error("Channel is not connected")
         return {"ok": True}
 
     employee = await employee_service.get_by_id_for_webhook(
@@ -44,10 +46,12 @@ async def telegram_webhook(
     )
 
     if employee.is_deleted or employee.status != EmployeeStatus.ACTIVE:
+        log.error("Employee is deleted or employee status is not active")
         return {"ok": True}
 
     message = update.get("message")
     if not message:
+        log.error("Message not taked")
         return {"ok": True}
 
     text = message.get("text")
@@ -55,6 +59,7 @@ async def telegram_webhook(
     chat_id = chat.get("id")
 
     if not text or not chat_id:
+        log.error("Unable to get text or chat_id")
         return {"ok": True}
 
     dialog = await dialog_service.get_or_create(
@@ -122,4 +127,5 @@ async def telegram_webhook(
             detail="Employee message not created",
         )
 
+    log.success(f"All its fine, answe:{answer}")
     return {"ok": True}
