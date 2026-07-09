@@ -21,6 +21,21 @@ class EmployeeRepository:
         return list(result.scalars().all())
 
     @provider.inject_session
+    async def get_by_id_only(
+        self,
+        employee_id: int,
+        session: AsyncSession,
+        ) -> Employee | None:
+            result = await session.execute(
+                 select(Employee).where(
+                      Employee.id == employee_id,
+                      Employee.is_deleted.is_(False),
+                 )
+            )
+            return result.scalar_one_or_none()
+
+
+    @provider.inject_session
     async def get_by_id(
         self,
         employee_id: int,
