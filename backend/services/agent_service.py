@@ -17,18 +17,32 @@ system_prompt ="""
 
 """
 
-def build_user_promt(post: str,description: str, instucrtion: str, tone: str, context: str, fallback: str):
+def build_user_promt(
+    question: str,
+    post: str,
+    description: str, 
+    instucrtion: str, 
+    tone: str, 
+    context: str, 
+    fallback: str):
     return f"""
     Ты - сотрудник {post} бизнеса: {description}.
     Соблюдай эти инструкции: {instucrtion} и отвечай в {tone} тоне.
     Отвечай строго по этому контексту: {context}.
     Если не знаешь или не уверен в ответе, отвечай: {fallback}
+
+    Вопрос:{question}
     """
 
 
 async def ask_agent(
-    user_topic: str,
-    description: str,
+    question: str,
+    post: str,
+    description: str, 
+    instucrtion: str, 
+    tone: str, 
+    context: str, 
+    fallback: str
 ):
     messages = [
         {
@@ -38,7 +52,16 @@ async def ask_agent(
         },
         {
             "role": "user",
-            "content": build_user_promt(user_topic,description),
+            "content": build_user_promt(
+                question=question,
+                post=post,
+                description=description,
+                instucrtion=instucrtion,
+                tone=tone,
+                context=context,
+                fallback=fallback
+                
+            ),
         },
     ]
 

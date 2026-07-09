@@ -1,7 +1,7 @@
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
-from backend.database.models.knowledge_file import KnowledgeFile
-from backend.utils.logger import log
+from langchain_core.documents import Document
+
 from backend.config import OPENROUTER_API_KEY
 
 
@@ -12,23 +12,32 @@ class EmbeddingService:
         model="nvidia/llama-nemotron-embed-vl-1b-v2:free",
     )
 
-    async def generate_embedding(
-        self, chunks: list[KnowledgeFile], document_name: str
+    async def add_chunks(
+        self,
+        employee_id: int,
+        knowledge_file_id: int,
+        document_name: str,
+        chunks: list[str],
     ) -> bool:
-        """
-        Генерирует вектора с последующим их сохранением в chromaDB
-        Возвращает: true-успешно, false-неуспешно
-        """
-        try:
-            Chroma.from_documents(
-                documents=chunks,
-                embedding=self.embeddings,
-                persist_directory="backend/database/chroma/chroma_db",
-                collection_name=document_name,
+        documents = [
+            Document(
+                page_content=chunk,
+                metadata={
+                    "employee_id": employee_id,
+                    "knowledge_file_id": knowledge_file_id,
+                    "document_name": document_name,
+                    "chunk_index": index,
+                },
             )
-            return True
-        except Exception as e:
-            log.exception("Ошибка создания векторов: ", e)
-            return False
+            for index, chunk in enumerate(chunks)
+        ]
 
-embedding_service = EmbeddingService()
+        vector_store = Chroma(
+            collection_name=f"employee_{employee_id}",
+            persist_directory="backend/database/chroma/chroma_db",
+            embedding_function=self.embeddings,
+        )
+
+        vector_store.add_documents(documents)
+
+        return True

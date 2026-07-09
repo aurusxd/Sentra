@@ -14,7 +14,10 @@ class VectorStoreService:
     )
 
     async def find_vectors(
-        self, collection_name: str, question: str, chunk_size: int
+        self,
+        employee_id: int,
+        question: str,
+        k: int = 5,
     ) -> list[KnowledgeFile]:
         """
         Ищет похожие вектор исходя из заданного вопроса
@@ -23,17 +26,17 @@ class VectorStoreService:
 
         """
         vector_store = Chroma(
-            collection_name=collection_name,
+            collection_name=f"employee_{employee_id}",
             persist_directory="backend/database/chroma/chroma_db",
             embedding_function=self.embeddings,
         )
         try:
             return vector_store.similarity_search(
-                question,
-                k=chunk_size,
+            question,
+            k=k,
             )
         except Exception as e:
-            log.exception("Ошибка поиска векторов: ", e)
+            log.exception("Ошибка поиска векторов")
             raise
 
 

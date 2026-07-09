@@ -21,10 +21,15 @@ class DialogService:
         return dialog
 
     async def get_by_employee_id(self, employee_id: int) -> list[Dialog]:
-        return await self.repository.get_by_employee_id(
+        dialogs = await self.repository.get_by_employee_id(
             employee_id=employee_id,
         )
-
+        if dialogs is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Dialogs not found",
+            )
+        return dialogs
     async def get_or_create(
         self,
         employee_id: int,

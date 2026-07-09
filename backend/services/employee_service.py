@@ -61,4 +61,17 @@ class EmployeeService:
         return await self.repository.update(employee=employee)
     
 
+    async def get_by_id_for_webhook(self, employee_id: int):
+        employee = await self.repository.get_by_id_only(
+            employee_id=employee_id,
+        )
+
+        if employee is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Employee not found",
+            )
+
+        return employee
+
 employee_service = EmployeeService()

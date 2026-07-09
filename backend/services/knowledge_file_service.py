@@ -79,7 +79,12 @@ class KnowledgeFileService:
 
         file = await self.repository.create(file=knowledge_file)
         chunks = await loader_service.document_loader(doc=file,employee_id=employee_id)
-        embedding_service.generate_embedding(chunks,knowledge_file.stored_filename)
+        embedding_service.add_chunks(
+            employee_id=employee_id,
+            knowledge_file_id=file.id,
+            document_name=file.original_filename,
+            chunks=chunks
+        )
         return file
 
     async def mark_processing(
