@@ -45,17 +45,9 @@ async def telegram_webhook(
         employee_id=channel.employee_id,
     )
 
-    # if employee.is_deleted or employee.status != EmployeeStatus.ACTIVE:
-    #     log.error("Employee is deleted or employee status is not active")
-    #     return {"ok": True}
-    print(
-        "EMPLOYEE",
-        employee.id,
-        employee.status,
-        employee.is_deleted,
-        flush=True,
-    )
-
+    if employee.is_deleted or employee.status != EmployeeStatus.ACTIVE:
+        log.error("Employee is deleted or employee status is not active")
+        return {"ok": True}
     message = update.get("message")
     if not message:
         log.error("Message not taked")

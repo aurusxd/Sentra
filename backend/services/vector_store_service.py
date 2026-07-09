@@ -4,13 +4,11 @@ from backend.config import OPENROUTER_API_KEY
 
 from backend.database.models.knowledge_file import KnowledgeFile
 from backend.utils.logger import log
-
+from langchain_huggingface import HuggingFaceEmbeddings
 
 class VectorStoreService:
-    embeddings = OpenAIEmbeddings(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
-        model="nvidia/llama-nemotron-embed-vl-1b-v2:free",
+    embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
 
     async def find_vectors(
