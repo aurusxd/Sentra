@@ -21,13 +21,13 @@ def build_user_promt(
     question: str,
     post: str,
     description: str, 
-    instucrtion: str, 
+    instruction: str, 
     tone: str, 
     context: str, 
     fallback: str):
     return f"""
     Ты - сотрудник {post} бизнеса: {description}.
-    Соблюдай эти инструкции: {instucrtion} и отвечай в {tone} тоне.
+    Соблюдай эти инструкции: {instruction} и отвечай в {tone} тоне.
     Отвечай строго по этому контексту: {context}.
     Если не знаешь или не уверен в ответе, отвечай: {fallback}
 
@@ -39,7 +39,7 @@ async def ask_agent(
     question: str,
     post: str,
     description: str, 
-    instucrtion: str, 
+    instruction: str, 
     tone: str, 
     context: str, 
     fallback: str
@@ -56,7 +56,7 @@ async def ask_agent(
                 question=question,
                 post=post,
                 description=description,
-                instucrtion=instucrtion,
+                instruction=instruction,
                 tone=tone,
                 context=context,
                 fallback=fallback
