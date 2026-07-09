@@ -57,11 +57,22 @@ async def telegram_webhook(
     client_username=chat.get("username"),
     )
 
-    await message_service.create_client_message(
+    if dialog is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Dialog not created",
+        )
+
+    msg = await message_service.create_client_message(
     dialog_id=dialog.id,
     text=text,
     external_message_id=str(message.get("message_id")),
-    )   
+    )
+    if msg is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Message not created",
+        )   
 
     token = decrypt_token(channel.token_encrypted)
 
@@ -74,10 +85,15 @@ async def telegram_webhook(
         text=answer,
     )
 
-    await message_service.create_employee_message(
+    employee_msg = await message_service.create_employee_message(
         dialog_id=dialog.id,
         text=answer,
         external_message_id=str(message.get("message_id"))
     )
+    if employee_msg is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Employee message not created",
+        )
 
     return {"ok": True}
