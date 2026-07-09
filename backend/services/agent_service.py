@@ -65,19 +65,20 @@ async def ask_agent(
         },
     ]
 
-    first_response = client.chat.completions.create(
+    try:
+        first_response = client.chat.completions.create(
         model="deepseek-v4-flash",
         messages=messages,
-    )
+        )
 
-    message = first_response.choices[0].message
-
-
-    messages.append(message)
+        message = first_response.choices[0].message
 
 
+        messages.append(message)
 
-    return message
+        return message
+    except Exception:
+        log.exception("Message not created")
 
 
     

@@ -100,6 +100,11 @@ async def telegram_webhook(
         fallback=employee.fallback_message,
     )
 
+    if answer is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Answer not taked",
+        )
     await telegram_service.send_message(
         token=token,
         chat_id=chat_id,
