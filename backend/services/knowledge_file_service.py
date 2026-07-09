@@ -7,9 +7,10 @@ from fastapi import HTTPException, UploadFile, status
 from backend.database.models.knowledge_file import KnowledgeFile
 from backend.repositories.knowledge_file_repository import KnowledgeFileRepository
 from backend.services.loader_service import loader_service
+from backend.services.embedding_service import EmbeddingService
 
 UPLOAD_DIR = Path("uploads/knowledge")
-
+embedding_service = EmbeddingService()
 
 class KnowledgeFileService:
     def __init__(self):
@@ -77,7 +78,8 @@ class KnowledgeFileService:
         )
 
         file = await self.repository.create(file=knowledge_file)
-        await loader_service.document_loader(doc=file,employee_id=employee_id)
+        chunks = await loader_service.document_loader(doc=file,employee_id=employee_id)
+        embedding_service.generate_embedding(chunks,knowledge_file.stored_filename)
         return file
 
     async def mark_processing(

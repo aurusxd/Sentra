@@ -226,7 +226,7 @@ const initialEmployees: Employee[] = [
   }
 ];
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "https://api.sentra.fun";
 
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem("access_token");
@@ -455,7 +455,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/auth/login", {
+      const response = await fetch("https://api.sentra.fun/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
