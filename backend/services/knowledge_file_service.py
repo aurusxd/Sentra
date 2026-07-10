@@ -79,7 +79,7 @@ class KnowledgeFileService:
 
         file = await self.repository.create(file=knowledge_file)
         chunks = await loader_service.document_loader(doc=file,employee_id=employee_id)
-        embedding_service.add_chunks(
+        await embedding_service.add_chunks(
             employee_id=employee_id,
             knowledge_file_id=file.id,
             document_name=file.original_filename,
