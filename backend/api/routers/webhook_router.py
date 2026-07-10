@@ -146,7 +146,7 @@ async def telegram_webhook(
         )
 
     token = decrypt_token(channel.token_encrypted)
-
+    log.info(text)
     found_chunks = await vector_store_service.find_vectors(
         employee_id=channel.employee_id,
         question=text,
