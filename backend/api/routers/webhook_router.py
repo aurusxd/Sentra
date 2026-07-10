@@ -96,7 +96,7 @@ async def telegram_webhook(
 
     answer = await ask_agent(
         question=text,
-        post=employee.name,
+        post=employee.role,
         description=employee.business_description,
         instruction=employee.instruction,
         tone=employee.tone,
