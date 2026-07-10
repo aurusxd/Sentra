@@ -1488,10 +1488,10 @@ function Conversations({
   }, [employee.id]);
 
   return (
-    <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
+      <div className="flex h-[620px] min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap gap-3">
-          <label className="relative flex-1">
+          <label className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input className="input pl-9" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" value={query} />
           </label>
@@ -1513,19 +1513,19 @@ function Conversations({
         ) : filtered.length === 0 ? (
           <EmptyState title="Диалогов пока нет." action="Здесь появятся обращения клиентов." />
         ) : (
-          <div className="space-y-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {filtered.map((conversation) => (
               <button
-                className={`w-full rounded-2xl border p-4 text-left transition ${
+                className={`h-[118px] w-full overflow-hidden rounded-2xl border p-4 text-left transition ${
                   selected?.id === conversation.id ? "border-slate-950 bg-slate-50" : "border-slate-200 hover:bg-slate-50"
                 }`}
                 key={conversation.id}
                 onClick={() => setSelectedId(conversation.id)}
                 type="button"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium">{conversation.customer}</p>
-                  <span className="text-xs text-slate-500">{conversation.time}</span>
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <p className="min-w-0 truncate font-medium">{conversation.customer}</p>
+                  <span className="shrink-0 text-xs text-slate-500">{conversation.time}</span>
                 </div>
                 <p className="mt-1 truncate text-sm text-slate-500">{conversation.lastMessage}</p>
                 <div className="mt-3">
@@ -1557,7 +1557,9 @@ function Conversations({
           title={selected.customer}
         />
       ) : (
-        <EmptyState title="Диалогов пока нет." action="Откройте диалог, чтобы ответить вручную." />
+        <div className="h-[620px] min-w-0">
+          <EmptyState title="Диалогов пока нет." action="Откройте диалог, чтобы ответить вручную." />
+        </div>
       )}
     </section>
   );
@@ -1698,13 +1700,13 @@ function ChatPanel({
   }
 
   return (
-    <section className="flex min-h-[620px] flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
-        <div>
-          <h2 className="font-semibold">{title}</h2>
+    <section className="flex h-[620px] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex min-h-[98px] items-center justify-between gap-3 border-b border-slate-200 p-5">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-semibold">{title}</h2>
           <p className="text-sm text-slate-500">История сообщений и ручные ответы.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
           {actions}
           {onClear && (
             <button className="btn-secondary" onClick={onClear} type="button">
@@ -1721,7 +1723,7 @@ function ChatPanel({
         )}
       </div>
       <form className="flex gap-3 border-t border-slate-200 p-4" onSubmit={submit}>
-        <input className="input" onChange={(event) => setMessage(event.target.value)} placeholder="Введите сообщение" value={message} />
+        <input className="input min-w-0" onChange={(event) => setMessage(event.target.value)} placeholder="Введите сообщение" value={message} />
         <button className="btn-primary shrink-0" type="submit">
           <Send size={17} />
           Отправить
@@ -1735,12 +1737,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const own = message.author === "You";
   return (
     <div className={`flex ${own ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[78%] rounded-2xl px-4 py-3 shadow-sm ${own ? "bg-slate-950 text-white" : "bg-white text-slate-800"}`}>
+      <div className={`max-w-[78%] overflow-hidden rounded-2xl px-4 py-3 shadow-sm ${own ? "bg-slate-950 text-white" : "bg-white text-slate-800"}`}>
         <div className="mb-1 flex items-center gap-2 text-xs opacity-70">
           <span>{authorLabels[message.author]}</span>
           <span>{message.time}</span>
         </div>
-        <p className="text-sm leading-6">{message.text}</p>
+        <p className="break-words text-sm leading-6 [overflow-wrap:anywhere]">{message.text}</p>
       </div>
     </div>
   );
