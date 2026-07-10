@@ -1,3 +1,5 @@
+from html import escape
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.core.security import get_current_user
@@ -20,6 +22,67 @@ router = APIRouter(
 
 channel_service = ChannelService()
 telegram_service = TelegramService()
+
+
+def is_fallback_answer(answer: str, fallback_message: str) -> bool:
+    return answer.strip() == fallback_message.strip()
+
+
+def format_client_name(chat: dict) -> str:
+    first_name = chat.get("first_name") or ""
+    last_name = chat.get("last_name") or ""
+    name = f"{first_name} {last_name}".strip()
+    return name or "Неизвестно"
+
+
+def format_username(username: str | None) -> str:
+    if not username:
+        return "-"
+    return username if username.startswith("@") else f"@{username}"
+
+
+def build_operator_help_message(
+    employee_name: str,
+    chat: dict,
+    chat_id: int | str,
+    text: str,
+) -> str:
+    return (
+        "🔴 Требуется помощь оператора\n\n"
+        f"AI-сотрудник: {escape(employee_name)}\n"
+        f"Клиент: {escape(format_client_name(chat))}\n"
+        f"Username: {escape(format_username(chat.get('username')))}\n"
+        f"Telegram ID: {escape(str(chat_id))}\n\n"
+        "Сообщение:\n"
+        f"{escape(text)}"
+    )
+
+
+async def notify_admin_about_fallback(
+    token: str,
+    admin_chat_id: str | None,
+    employee_name: str,
+    chat: dict,
+    chat_id: int | str,
+    text: str,
+) -> None:
+    if not admin_chat_id:
+        log.warning("Telegram admin chat id is not set")
+        return
+
+    try:
+        await telegram_service.send_message(
+            token=token,
+            chat_id=admin_chat_id,
+            text=build_operator_help_message(
+                employee_name=employee_name,
+                chat=chat,
+                chat_id=chat_id,
+                text=text,
+            ),
+        )
+    except Exception:
+        log.exception("Admin fallback notification was not sent")
 
 
 @router.post("/webhook/{webhook_secret}")
@@ -65,7 +128,7 @@ async def telegram_webhook(
         employee_id=channel.employee_id,
         channel_id=channel.id,
         client_external_id=str(chat_id),
-        client_name=chat.get("first_name"),
+        client_name=format_client_name(chat),
         client_username=chat.get("username"),
     )
 
@@ -114,6 +177,17 @@ async def telegram_webhook(
         chat_id=chat_id,
         text=answer,
     )
+
+    if is_fallback_answer(answer=answer, fallback_message=employee.fallback_message):
+        await dialog_service.mark_needs_human(dialog_id=dialog.id)
+        await notify_admin_about_fallback(
+            token=token,
+            admin_chat_id=employee.telegram_admin_chat_id,
+            employee_name=employee.name,
+            chat=chat,
+            chat_id=chat_id,
+            text=text,
+        )
 
     employee_msg = await message_service.create_employee_message(
         dialog_id=dialog.id,

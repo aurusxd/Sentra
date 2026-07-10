@@ -18,6 +18,7 @@ class EmployeeCreate(BaseModel):
     tone: str = "friendly"
     instruction: str
     fallback_message: str
+    telegram_admin_chat_id: str | None = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -28,6 +29,7 @@ class EmployeeUpdate(BaseModel):
     tone: str | None = None
     instruction: str | None = None
     fallback_message: str | None = None
+    telegram_admin_chat_id: str | None = None
     status: EmployeeStatus | None = None
 
 
@@ -40,6 +42,7 @@ class EmployeeRead(BaseModel):
     tone: str
     instruction: str
     fallback_message: str
+    telegram_admin_chat_id: str | None
     status: EmployeeStatus
     created_at: datetime
     updated_at: datetime | None

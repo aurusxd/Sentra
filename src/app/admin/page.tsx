@@ -59,6 +59,7 @@ type EmployeeResponse = {
   tone: string;
   instruction: string;
   fallback_message: string;
+  telegram_admin_chat_id: string | null;
   status: EmployeeApiStatus;
   created_at: string;
   updated_at: string | null;
@@ -131,6 +132,7 @@ type Employee = {
   tone: string;
   workInstruction: string;
   fallbackMessage: string;
+  telegramAdminChatId: string;
   status: EmployeeStatus;
   telegramConnected: boolean;
   telegramBotUsername?: string;
@@ -149,6 +151,7 @@ type EmployeeForm = {
   tone: string;
   workInstruction: string;
   fallbackMessage: string;
+  telegramAdminChatId: string;
 };
 
 const tabs: EmployeeTab[] = ["Overview", "Knowledge", "Telegram", "Conversations", "Settings"];
@@ -187,7 +190,8 @@ const emptyForm: EmployeeForm = {
   language: "Русский",
   tone: "Дружелюбный",
   workInstruction: "",
-  fallbackMessage: "Я пока не уверен в ответе. Передам вопрос человеку из команды."
+  fallbackMessage: "Я пока не уверен в ответе. Передам вопрос человеку из команды.",
+  telegramAdminChatId: ""
 };
 
 const initialEmployees: Employee[] = [
@@ -200,6 +204,7 @@ const initialEmployees: Employee[] = [
     tone: "Спокойный и точный",
     workInstruction: "Отвечай по загруженной базе знаний. Передавай человеку вопросы по оплате и юридическим темам.",
     fallbackMessage: "Мне нужно уточнить это у коллеги. Мы вернемся с ответом в ближайшее время.",
+    telegramAdminChatId: "",
     status: "Enabled",
     telegramConnected: true,
     telegramBotUsername: "@sentra_support_bot",
@@ -244,6 +249,7 @@ const initialEmployees: Employee[] = [
     tone: "Уверенный",
     workInstruction: "Квалифицируй лидов, уточняй размер компании и предлагай демо при явном интересе.",
     fallbackMessage: "Я подключу команду продаж, чтобы дать точный ответ.",
+    telegramAdminChatId: "",
     status: "Disabled",
     telegramConnected: false,
     activeDialogs: 0,
@@ -372,6 +378,7 @@ function mapEmployee(employee: EmployeeResponse): Employee {
     tone: employee.tone,
     workInstruction: employee.instruction,
     fallbackMessage: employee.fallback_message,
+    telegramAdminChatId: employee.telegram_admin_chat_id ?? "",
     status: mapEmployeeStatus(employee.status),
     telegramConnected: false,
     activeDialogs: 0,
@@ -391,6 +398,7 @@ function mergeEmployeeResponse(current: Employee, employee: EmployeeResponse): E
     tone: employee.tone,
     workInstruction: employee.instruction,
     fallbackMessage: employee.fallback_message,
+    telegramAdminChatId: employee.telegram_admin_chat_id ?? current.telegramAdminChatId,
     status: mapEmployeeStatus(employee.status)
   };
 }
@@ -460,6 +468,7 @@ export default function AdminPage() {
       tone: form.tone,
       workInstruction: form.workInstruction,
       fallbackMessage: form.fallbackMessage,
+      telegramAdminChatId: form.telegramAdminChatId,
       status: "Enabled",
       telegramConnected: false,
       activeDialogs: 0,
@@ -762,6 +771,7 @@ function HireEmployee({ onCreate, onCancel }: { onCreate: (form: EmployeeForm, e
         business_description: form.businessDescription,
         instruction: form.workInstruction,
         fallback_message: form.fallbackMessage,
+        telegram_admin_chat_id: form.telegramAdminChatId.trim() || null,
       }),
   });
 
@@ -822,6 +832,14 @@ function HireEmployee({ onCreate, onCancel }: { onCreate: (form: EmployeeForm, e
         </Field>
         <Field className="lg:col-span-2" label="Сообщение при отсутствии ответа">
           <textarea className="textarea" onChange={(event) => setField("fallbackMessage", event.target.value)} value={form.fallbackMessage} />
+        </Field>
+        <Field className="lg:col-span-2" label="Telegram chat ID админа">
+          <input
+            className="input"
+            onChange={(event) => setField("telegramAdminChatId", event.target.value)}
+            placeholder="Например: 123456789"
+            value={form.telegramAdminChatId}
+          />
         </Field>
         <div className="flex flex-wrap gap-3 lg:col-span-2">
           {error && (
@@ -970,6 +988,7 @@ function Overview({
         <div className="space-y-4 text-sm">
           <InfoRow label="Язык" value={employee.language} />
           <InfoRow label="Тон" value={employee.tone} />
+          <InfoRow label="Telegram chat ID админа" value={employee.telegramAdminChatId || "-"} />
           <InfoRow label="Резервное сообщение" value={employee.fallbackMessage} />
         </div>
       </section>
@@ -1583,7 +1602,8 @@ function EmployeeSettings({
     language: employee.language,
     tone: employee.tone,
     workInstruction: employee.workInstruction,
-    fallbackMessage: employee.fallbackMessage
+    fallbackMessage: employee.fallbackMessage,
+    telegramAdminChatId: employee.telegramAdminChatId
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1610,7 +1630,8 @@ function EmployeeSettings({
           language: form.language,
           tone: form.tone,
           instruction: form.workInstruction,
-          fallback_message: form.fallbackMessage
+          fallback_message: form.fallbackMessage,
+          telegram_admin_chat_id: form.telegramAdminChatId.trim() || null
         })
       });
 
@@ -1658,6 +1679,14 @@ function EmployeeSettings({
         </Field>
         <Field className="lg:col-span-2" label="Сообщение при отсутствии ответа">
           <textarea className="textarea" onChange={(event) => setField("fallbackMessage", event.target.value)} value={form.fallbackMessage} />
+        </Field>
+        <Field className="lg:col-span-2" label="Telegram chat ID админа">
+          <input
+            className="input"
+            onChange={(event) => setField("telegramAdminChatId", event.target.value)}
+            placeholder="Например: 123456789"
+            value={form.telegramAdminChatId}
+          />
         </Field>
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 lg:col-span-2">{error}</p>}
         <div className="flex flex-wrap justify-between gap-3 lg:col-span-2">
