@@ -33,6 +33,9 @@ class EmbeddingService:
                     )
                 )
 
+            if not documents:
+                log.warning("No chunks received for embedding")
+                return False
             vector_store = Chroma(
                 collection_name=f"employee_{employee_id}",
                 persist_directory="backend/database/chroma/chroma_db",
@@ -41,9 +44,11 @@ class EmbeddingService:
 
             vector_store.add_documents(documents)
 
+            ids = vector_store.add_documents(documents)
+
             log.success(
-                f"Added {len(documents)} chunks "
-                f"to employee_{employee_id}"
+                f"Saved {len(ids)} vectors; "
+                f"collection total={vector_store._collection.count()}"
             )
 
             return True
