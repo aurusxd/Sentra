@@ -24,10 +24,6 @@ channel_service = ChannelService()
 telegram_service = TelegramService()
 
 
-def is_fallback_answer(answer: str, fallback_message: str) -> bool:
-    return answer.strip() == fallback_message.strip()
-
-
 def format_client_name(chat: dict) -> str:
     first_name = chat.get("first_name") or ""
     last_name = chat.get("last_name") or ""
@@ -157,28 +153,40 @@ async def telegram_webhook(
     )
     message_context = "\n\n".join(chunk.page_content for chunk in found_chunks)
 
-    answer = await ask_agent(
-        question=text,
-        post=employee.role,
-        description=employee.business_description,
-        instruction=employee.instruction,
-        tone=employee.tone,
-        context=message_context,
-        fallback=employee.fallback_message,
-    )
+    fallback_used = False
 
-    if answer is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Answer not taked",
+    if not found_chunks:
+        answer = employee.fallback_message
+        fallback_used = True
+    else:
+        agent_response = await ask_agent(
+            question=text,
+            post=employee.role,
+            description=employee.business_description,
+            instruction=employee.instruction,
+            tone=employee.tone,
+            context=message_context,
         )
+
+        if agent_response is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Answer not taked",
+            )
+
+        if agent_response["status"] == "fallback" or not agent_response["answer"]:
+            answer = employee.fallback_message
+            fallback_used = True
+        else:
+            answer = agent_response["answer"]
+
     await telegram_service.send_message(
         token=token,
         chat_id=chat_id,
         text=answer,
     )
 
-    if is_fallback_answer(answer=answer, fallback_message=employee.fallback_message):
+    if fallback_used:
         await dialog_service.mark_needs_human(dialog_id=dialog.id)
         await notify_admin_about_fallback(
             token=token,
