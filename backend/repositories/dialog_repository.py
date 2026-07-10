@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from backend.database.models.dialog import Dialog
 from backend.utils.depends import provider
@@ -37,7 +38,12 @@ class DialogRepository:
         session: AsyncSession,
     ) -> Dialog | None:
         result = await session.execute(
-            select(Dialog).where(Dialog.id == dialog_id)
+            select(Dialog)
+            .options(
+                selectinload(Dialog.channel),
+                selectinload(Dialog.messages),
+            )
+            .where(Dialog.id == dialog_id)
         )
 
         return result.scalar_one_or_none()
@@ -50,6 +56,7 @@ class DialogRepository:
     ) -> list[Dialog]:
         result = await session.execute(
             select(Dialog)
+            .options(selectinload(Dialog.messages))
             .where(Dialog.employee_id == employee_id)
             .order_by(Dialog.updated_at.desc())
         )

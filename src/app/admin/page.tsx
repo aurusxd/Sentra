@@ -31,7 +31,7 @@ type EmployeeStatus = "Enabled" | "Disabled";
 type EmployeeApiStatus = "active" | "inactive" | "needs_setup";
 type DocumentStatus = "Uploaded" | "Processing" | "Ready" | "Error";
 type ConversationStatus = "AI" | "Human" | "Closed" | "Needs human";
-type EmployeeTab = "Overview" | "Knowledge" | "Telegram" | "Test Chat" | "Conversations" | "Settings";
+type EmployeeTab = "Overview" | "Knowledge" | "Telegram" | "Conversations" | "Settings";
 type Screen = "login" | "workspace" | "hire" | "employee";
 
 type KnowledgeDocument = {
@@ -80,6 +80,32 @@ type TelegramConnectionResponse = {
   status: "connected" | "disconnected" | "error";
 };
 
+type DialogApiStatus = "active" | "resolved" | "needs_human";
+type SenderType = "client" | "employee" | "human";
+
+type MessageResponse = {
+  id: number;
+  dialog_id: number;
+  sender_type: SenderType;
+  text: string;
+  external_message_id: string | null;
+  created_at: string;
+};
+
+type DialogResponse = {
+  id: number;
+  employee_id: number;
+  channel_id: number | null;
+  client_external_id: string;
+  client_name: string | null;
+  client_username: string | null;
+  status: DialogApiStatus;
+  is_human_takeover: boolean;
+  created_at: string;
+  updated_at: string | null;
+  messages: MessageResponse[];
+};
+
 type ChatMessage = {
   id: number;
   author: "You" | "AI" | "Customer";
@@ -113,7 +139,6 @@ type Employee = {
   humanPending: number;
   documents: KnowledgeDocument[];
   conversations: Conversation[];
-  testMessages: ChatMessage[];
 };
 
 type EmployeeForm = {
@@ -126,13 +151,12 @@ type EmployeeForm = {
   fallbackMessage: string;
 };
 
-const tabs: EmployeeTab[] = ["Overview", "Knowledge", "Telegram", "Test Chat", "Conversations", "Settings"];
+const tabs: EmployeeTab[] = ["Overview", "Knowledge", "Telegram", "Conversations", "Settings"];
 
 const tabLabels: Record<EmployeeTab, string> = {
   Overview: "Обзор",
   Knowledge: "База знаний",
   Telegram: "Telegram",
-  "Test Chat": "Тестовый чат",
   Conversations: "Диалоги",
   Settings: "Настройки"
 };
@@ -210,10 +234,6 @@ const initialEmployees: Employee[] = [
         ]
       }
     ],
-    testMessages: [
-      { id: 1, author: "You", text: "Как ты отвечаешь на вопросы о возвратах?", time: "10:02" },
-      { id: 2, author: "AI", text: "Объясняю сроки возврата и передаю нестандартные случаи человеку.", time: "10:02" }
-    ]
   },
   {
     id: 2,
@@ -230,7 +250,6 @@ const initialEmployees: Employee[] = [
     humanPending: 0,
     documents: [],
     conversations: [],
-    testMessages: []
   }
 ];
 
@@ -262,6 +281,10 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function formatTelegramUsername(username?: string | null) {
@@ -306,6 +329,39 @@ function mapEmployeeStatusForApi(status: EmployeeStatus): EmployeeApiStatus {
   return status === "Enabled" ? "active" : "inactive";
 }
 
+function mapConversationStatus(dialog: DialogResponse): ConversationStatus {
+  if (dialog.status === "resolved") return "Closed";
+  if (dialog.is_human_takeover) return "Human";
+  if (dialog.status === "needs_human") return "Needs human";
+  return "AI";
+}
+
+function mapMessageAuthor(senderType: SenderType): ChatMessage["author"] {
+  if (senderType === "client") return "Customer";
+  if (senderType === "human") return "You";
+  return "AI";
+}
+
+function mapConversation(dialog: DialogResponse): Conversation {
+  const messages = dialog.messages.map((message) => ({
+    id: message.id,
+    author: mapMessageAuthor(message.sender_type),
+    text: message.text,
+    time: formatTime(message.created_at)
+  }));
+  const lastMessage = dialog.messages.at(-1);
+  const customer = dialog.client_name || dialog.client_username || `Клиент ${dialog.client_external_id}`;
+
+  return {
+    id: dialog.id,
+    customer,
+    lastMessage: lastMessage?.text ?? "Сообщений пока нет",
+    time: formatTime(lastMessage?.created_at ?? dialog.updated_at ?? dialog.created_at),
+    status: mapConversationStatus(dialog),
+    messages
+  };
+}
+
 function mapEmployee(employee: EmployeeResponse): Employee {
   return {
     id: employee.id,
@@ -322,7 +378,6 @@ function mapEmployee(employee: EmployeeResponse): Employee {
     humanPending: 0,
     documents: [],
     conversations: [],
-    testMessages: []
   };
 }
 
@@ -411,7 +466,6 @@ export default function AdminPage() {
       humanPending: 0,
       documents: [],
       conversations: [],
-      testMessages: []
     };
     setEmployees((current) => [employee, ...current]);
     setSelectedEmployeeId(employee.id);
@@ -825,8 +879,7 @@ function EmployeeWorkspace({
       {activeTab === "Overview" && <Overview employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Knowledge" && <Knowledge employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Telegram" && <Telegram employee={employee} onUpdate={onUpdate} setToast={setToast} />}
-      {activeTab === "Test Chat" && <TestChat employee={employee} onUpdate={onUpdate} />}
-      {activeTab === "Conversations" && <Conversations employee={employee} onUpdate={onUpdate} />}
+      {activeTab === "Conversations" && <Conversations employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Settings" && <EmployeeSettings employee={employee} onUpdate={onUpdate} onDelete={onDelete} setToast={setToast} />}
     </section>
   );
@@ -1290,36 +1343,22 @@ function Telegram({
   );
 }
 
-function TestChat({ employee, onUpdate }: { employee: Employee; onUpdate: (updater: (employee: Employee) => Employee) => void }) {
-  return (
-    <ChatPanel
-      emptyTitle="Тестовых сообщений пока нет."
-      messages={employee.testMessages}
-      onClear={() => onUpdate((current) => ({ ...current, testMessages: [] }))}
-      onSend={(text) =>
-        onUpdate((current) => ({
-          ...current,
-          testMessages: [
-            ...current.testMessages,
-            { id: Date.now(), author: "You", text, time: nowTime() },
-            {
-              id: Date.now() + 1,
-              author: "AI",
-              text: `Я отвечу как ${current.name}: ${current.fallbackMessage}`,
-              time: nowTime()
-            }
-          ]
-        }))
-      }
-      title="Тестовый чат"
-    />
-  );
-}
 
-function Conversations({ employee, onUpdate }: { employee: Employee; onUpdate: (updater: (employee: Employee) => Employee) => void }) {
+function Conversations({
+  employee,
+  onUpdate,
+  setToast
+}: {
+  employee: Employee;
+  onUpdate: (updater: (employee: Employee) => Employee) => void;
+  setToast: (message: string) => void;
+}) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"All" | ConversationStatus>("All");
   const [selectedId, setSelectedId] = useState(employee.conversations[0]?.id ?? 0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [action, setAction] = useState<"takeover" | "return" | "resolve" | "send" | null>(null);
+  const [error, setError] = useState("");
 
   const filtered = useMemo(
     () =>
@@ -1332,17 +1371,126 @@ function Conversations({ employee, onUpdate }: { employee: Employee; onUpdate: (
   );
   const selected = employee.conversations.find((conversation) => conversation.id === selectedId) ?? filtered[0];
 
-  function updateConversation(id: number, updater: (conversation: Conversation) => Conversation) {
+  function setConversations(conversations: Conversation[]) {
     onUpdate((current) => ({
       ...current,
-      conversations: current.conversations.map((conversation) => (conversation.id === id ? updater(conversation) : conversation))
+      activeDialogs: conversations.filter((conversation) => conversation.status !== "Closed").length,
+      humanPending: conversations.filter((conversation) => conversation.status === "Human" || conversation.status === "Needs human").length,
+      conversations
     }));
   }
+
+  function updateConversation(id: number, updater: (conversation: Conversation) => Conversation) {
+    onUpdate((current) => {
+      const conversations = current.conversations.map((conversation) => (conversation.id === id ? updater(conversation) : conversation));
+
+      return {
+        ...current,
+        activeDialogs: conversations.filter((conversation) => conversation.status !== "Closed").length,
+        humanPending: conversations.filter((conversation) => conversation.status === "Human" || conversation.status === "Needs human").length,
+        conversations
+      };
+    });
+  }
+
+  async function loadConversations() {
+    try {
+      setError("");
+      setIsLoading(true);
+
+      const response = await fetch(`${API_BASE_URL}/dialog/?employee_id=${employee.id}`, {
+        headers: authHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Не удалось загрузить диалоги"));
+      }
+
+      const conversations = ((await response.json()) as DialogResponse[]).map(mapConversation);
+      setConversations(conversations);
+      setSelectedId((current) => (conversations.some((conversation) => conversation.id === current) ? current : conversations[0]?.id ?? 0));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить диалоги");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function runDialogAction(nextAction: "takeover" | "return" | "resolve", dialogId: number) {
+    const endpoint = nextAction === "takeover" ? "takeover" : nextAction === "return" ? "return" : "resolve";
+
+    try {
+      setError("");
+      setAction(nextAction);
+
+      const response = await fetch(`${API_BASE_URL}/dialog/${dialogId}/${endpoint}`, {
+        method: "POST",
+        headers: authHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Не удалось обновить диалог"));
+      }
+
+      const updatedConversation = mapConversation((await response.json()) as DialogResponse);
+      updateConversation(dialogId, () => updatedConversation);
+      setToast("Диалог обновлен");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить диалог");
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function sendMessage(dialogId: number, text: string) {
+    try {
+      setError("");
+      setAction("send");
+
+      const response = await fetch(`${API_BASE_URL}/dialog/${dialogId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders()
+        },
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Не удалось отправить сообщение"));
+      }
+
+      const message = (await response.json()) as MessageResponse;
+      const chatMessage: ChatMessage = {
+        id: message.id,
+        author: mapMessageAuthor(message.sender_type),
+        text: message.text,
+        time: formatTime(message.created_at)
+      };
+
+      updateConversation(dialogId, (conversation) => ({
+        ...conversation,
+        lastMessage: chatMessage.text,
+        time: chatMessage.time,
+        status: "Human",
+        messages: [...conversation.messages, chatMessage]
+      }));
+      setToast("Сообщение отправлено");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить сообщение");
+    } finally {
+      setAction(null);
+    }
+  }
+
+  useEffect(() => {
+    void loadConversations();
+  }, [employee.id]);
 
   return (
     <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex gap-3">
+        <div className="mb-4 flex flex-wrap gap-3">
           <label className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input className="input pl-9" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" value={query} />
@@ -1354,8 +1502,15 @@ function Conversations({ employee, onUpdate }: { employee: Employee; onUpdate: (
             <option value="Needs human">Нужен человек</option>
             <option value="Closed">Закрыт</option>
           </select>
+          <button className="btn-secondary" disabled={isLoading} onClick={loadConversations} type="button">
+            <RefreshCcw size={16} />
+            {isLoading ? "Обновляем..." : "Обновить"}
+          </button>
         </div>
-        {filtered.length === 0 ? (
+        {error && <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+        {isLoading ? (
+          <EmptyState title="Загружаем диалоги..." action="Получаем обращения клиентов с сервера." />
+        ) : filtered.length === 0 ? (
           <EmptyState title="Диалогов пока нет." action="Здесь появятся обращения клиентов." />
         ) : (
           <div className="space-y-2">
@@ -1385,27 +1540,20 @@ function Conversations({ employee, onUpdate }: { employee: Employee; onUpdate: (
         <ChatPanel
           actions={
             <>
-              <button className="btn-secondary" onClick={() => updateConversation(selected.id, (item) => ({ ...item, status: "Human" }))} type="button">
-                Взять на себя
+              <button className="btn-secondary" disabled={action !== null} onClick={() => runDialogAction("takeover", selected.id)} type="button">
+                {action === "takeover" ? "Берем..." : "Взять на себя"}
               </button>
-              <button className="btn-secondary" onClick={() => updateConversation(selected.id, (item) => ({ ...item, status: "AI" }))} type="button">
-                Вернуть AI
+              <button className="btn-secondary" disabled={action !== null} onClick={() => runDialogAction("return", selected.id)} type="button">
+                {action === "return" ? "Возвращаем..." : "Вернуть AI"}
               </button>
-              <button className="btn-secondary" onClick={() => updateConversation(selected.id, (item) => ({ ...item, status: "Closed" }))} type="button">
-                Закрыть
+              <button className="btn-secondary" disabled={action !== null} onClick={() => runDialogAction("resolve", selected.id)} type="button">
+                {action === "resolve" ? "Закрываем..." : "Закрыть"}
               </button>
             </>
           }
           emptyTitle="В этом диалоге пока нет сообщений."
           messages={selected.messages}
-          onSend={(text) =>
-            updateConversation(selected.id, (conversation) => ({
-              ...conversation,
-              lastMessage: text,
-              time: nowTime(),
-              messages: [...conversation.messages, { id: Date.now(), author: "You", text, time: nowTime() }]
-            }))
-          }
+          onSend={(text) => sendMessage(selected.id, text)}
           title={selected.customer}
         />
       ) : (
