@@ -1,8 +1,8 @@
-"""empty message
+"""init
 
-Revision ID: 905b1c971f54
+Revision ID: 41237f34dc50
 Revises: 
-Create Date: 2026-07-07 15:15:03.040491
+Create Date: 2026-07-10 17:18:39.316880
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '905b1c971f54'
+revision: str = '41237f34dc50'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -40,6 +40,7 @@ def upgrade() -> None:
     sa.Column('tone', sa.String(length=100), nullable=False),
     sa.Column('instruction', sa.Text(), nullable=False),
     sa.Column('fallback_message', sa.Text(), nullable=False),
+    sa.Column('telegram_admin_chat_id', sa.String(), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
