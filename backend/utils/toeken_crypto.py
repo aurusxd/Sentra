@@ -2,7 +2,7 @@ from cryptography.fernet import Fernet
 
 from backend.config import TOKEN_ENCRYPTION_KEY
 
-tokens="04kGMbLKKZl2cIJ8l34vWfdYOgsBBR197a0JOP4Ylbg="
+tokens=TOKEN_ENCRYPTION_KEY
 fernet = Fernet(tokens.encode())
 
 
