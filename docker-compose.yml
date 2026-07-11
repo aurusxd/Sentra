@@ -6,6 +6,9 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      - uploads_data:/app/uploads
+      - chroma_data:/app/backend/database/chroma
     depends_on:
       - db
 
@@ -30,3 +33,5 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
+  chroma_data:

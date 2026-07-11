@@ -12,6 +12,9 @@ RUN addgroup --system sentra && adduser --system --ingroup sentra sentra
 
 COPY --chown=sentra:sentra . .
 
+RUN mkdir -p /app/uploads/knowledge /app/backend/database/chroma/chroma_db \
+    && chown -R sentra:sentra /app/uploads /app/backend/database/chroma
+
 USER sentra
 
 EXPOSE 8000

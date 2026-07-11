@@ -466,7 +466,8 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#f7f8fb] text-slate-950">
       {screen === "login" ? (
         <LoginScreen
-          onLogin={() => {
+          onLogin={(canRegisterUsers) => {
+            setCanRegisterUsers(canRegisterUsers);
             setScreen("workspace");
             loadEmployees();
           }}
@@ -506,7 +507,7 @@ export default function AdminPage() {
   );
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
+function LoginScreen({ onLogin }: { onLogin: (canRegisterUsers: boolean) => void }) {
   const [name, setName] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -538,7 +539,15 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 
       const data = (await response.json()) as { access_token: string };
       accessToken = data.access_token;
-      onLogin();
+
+      const sessionResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: authHeaders()
+      });
+      const session = sessionResponse.ok
+        ? (await sessionResponse.json()) as { can_register_users: boolean }
+        : { can_register_users: false };
+
+      onLogin(session.can_register_users);
     } catch (err) {
       setError("Не удалось подключиться к серверу");
     } finally {
