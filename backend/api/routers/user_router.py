@@ -25,7 +25,7 @@ async def login(data: UserLogin, response: Response):
         max_age=60 * 60 * 24,
         httponly=True,
         secure=COOKIE_SECURE,
-        samesite="lax",
+        samesite="none" if COOKIE_SECURE else "lax",
         path="/",
     )
     return {"ok": True}
