@@ -10,18 +10,17 @@ import {
   Inbox,
   LayoutDashboard,
   LogIn,
+  LogOut,
   MessageCircle,
   MessageSquareText,
   Plus,
   RefreshCcw,
   Search,
   Send,
-  Settings,
   ShieldCheck,
   Trash2,
   UploadCloud,
   UserRoundCheck,
-  UsersRound,
   X
 } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
@@ -388,6 +387,21 @@ export default function AdminPage() {
     setEmployees((current) => current.map((employee) => (employee.id === id ? updater(employee) : employee)));
   }
 
+  async function logout() {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers: authHeaders()
+      });
+    } finally {
+      accessToken = "";
+      setEmployees([]);
+      setSelectedEmployeeId(0);
+      setCanRegisterUsers(false);
+      setScreen("login");
+    }
+  }
+
   async function loadEmployees() {
     try {
       const response = await fetch(`${API_BASE_URL}/employees/`, {
@@ -474,7 +488,7 @@ export default function AdminPage() {
         />
       ) : (
         <div className="flex min-h-screen">
-          <Sidebar screen={screen} onNavigate={setScreen} canRegisterUsers={canRegisterUsers} />
+          <Sidebar screen={screen} onNavigate={setScreen} canRegisterUsers={canRegisterUsers} onLogout={logout} />
           <div className="min-w-0 flex-1">
             <Topbar
               title={screen === "accounts" ? "Регистрация клиентов" : screen === "hire" ? "Найм сотрудника" : screen === "employee" ? selectedEmployee?.name ?? "Сотрудник" : "Рабочее пространство"}
@@ -646,23 +660,21 @@ function AccountRegistration({ setToast }: { setToast: (message: string) => void
   );
 }
 
-function Sidebar({ screen, onNavigate, canRegisterUsers }: { screen: Screen; onNavigate: (screen: Screen) => void; canRegisterUsers: boolean }) {
+function Sidebar({ screen, onNavigate, canRegisterUsers, onLogout }: { screen: Screen; onNavigate: (screen: Screen) => void; canRegisterUsers: boolean; onLogout: () => void }) {
   const items = [
     { label: "Рабочее пространство", icon: LayoutDashboard, screen: "workspace" as Screen },
-    { label: "Сотрудники", icon: UsersRound, screen: "workspace" as Screen },
-    ...(canRegisterUsers ? [{ label: "Аккаунты клиентов", icon: UserRoundCheck, screen: "accounts" as Screen }] : []),
-    { label: "Настройки", icon: Settings, screen: "workspace" as Screen }
+    ...(canRegisterUsers ? [{ label: "Аккаунты клиентов", icon: UserRoundCheck, screen: "accounts" as Screen }] : [])
   ];
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-5 lg:block">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-5 lg:flex">
       <div className="mb-8 flex items-center gap-3 px-2">
         <div className="grid size-9 place-items-center rounded-lg bg-slate-950 text-sm font-bold text-white">
           S
         </div>
         <div>
           <p className="font-semibold">Sentra</p>
-          <p className="text-xs text-slate-500">Админка MVP</p>
+          <p className="text-xs text-slate-500">Админка</p>
         </div>
       </div>
       <nav className="space-y-1">
@@ -684,6 +696,14 @@ function Sidebar({ screen, onNavigate, canRegisterUsers }: { screen: Screen; onN
           );
         })}
       </nav>
+      <button
+        className="mt-auto flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-700"
+        onClick={onLogout}
+        type="button"
+      >
+        <LogOut size={17} />
+        Выйти
+      </button>
     </aside>
   );
 }
