@@ -11,6 +11,8 @@ load_dotenv()
 OPENROUTER_API_KEY=os.getenv("OPENROUTER_API_KEY")
 API_URL=os.getenv("API_URL")
 TOKEN_ENCRYPTION_KEY=os.getenv("TOKEN_ENCRYPTION_KEY")
+TELEGRAM_LEAD_BOT_TOKEN=os.getenv("TELEGRAM_LEAD_BOT_TOKEN")
+TELEGRAM_LEAD_CHAT_ID=os.getenv("TELEGRAM_LEAD_CHAT_ID")
 class Config(BaseModel):
     database: DbConfig = Field(default_factory=lambda: DbConfig(**env))
 

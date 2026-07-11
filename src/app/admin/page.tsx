@@ -594,8 +594,8 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
     <main className="grid min-h-screen place-items-center px-6">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8 flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white">
-            <Bot size={22} />
+          <div className="grid size-9 place-items-center rounded-lg bg-slate-950 text-sm font-bold text-white">
+            S
           </div>
           <div>
             <p className="text-lg font-semibold">Админ-панель Sentra</p>
@@ -637,8 +637,8 @@ function Sidebar({ screen, onNavigate }: { screen: Screen; onNavigate: (screen: 
   return (
     <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white px-4 py-5 lg:block">
       <div className="mb-8 flex items-center gap-3 px-2">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-white">
-          <Bot size={21} />
+        <div className="grid size-9 place-items-center rounded-lg bg-slate-950 text-sm font-bold text-white">
+          S
         </div>
         <div>
           <p className="font-semibold">Sentra</p>
