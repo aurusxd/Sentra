@@ -5,10 +5,6 @@ const scriptPolicy = process.env.NODE_ENV === "development"
 
 const nextConfig = {
   reactStrictMode: true,
-  async rewrites() {
-    const backendUrl = process.env.BACKEND_INTERNAL_URL || "https://api.sentra.fun";
-    return [{ source: "/backend-api/:path*", destination: `${backendUrl}/:path*` }];
-  },
   async headers() {
     return [{
       source: "/(.*)",

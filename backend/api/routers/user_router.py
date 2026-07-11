@@ -28,7 +28,10 @@ async def login(data: UserLogin, response: Response):
         samesite="none" if COOKIE_SECURE else "lax",
         path="/",
     )
-    return {"ok": True}
+    return {
+        "access_token": result["access_token"],
+        "token_type": "Bearer",
+    }
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("register", 10, 3600))])
 async def register(data: UserCreate, current_user: User = Depends(get_current_user)):

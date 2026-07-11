@@ -194,79 +194,17 @@ const emptyForm: EmployeeForm = {
   telegramAdminChatId: ""
 };
 
-const initialEmployees: Employee[] = [
-  {
-    id: 1,
-    name: "Мия",
-    role: "Специалист поддержки клиентов",
-    businessDescription: "SaaS-платформа для команд поддержки и обработки обращений в Telegram.",
-    language: "Русский",
-    tone: "Спокойный и точный",
-    workInstruction: "Отвечай по загруженной базе знаний. Передавай человеку вопросы по оплате и юридическим темам.",
-    fallbackMessage: "Мне нужно уточнить это у коллеги. Мы вернемся с ответом в ближайшее время.",
-    telegramAdminChatId: "",
-    status: "Enabled",
-    telegramConnected: true,
-    telegramBotUsername: "@sentra_support_bot",
-    telegramConnectedAt: "4 июля 2026, 10:24",
-    activeDialogs: 8,
-    humanPending: 2,
-    documents: [
-      { id: 1, name: "Регламент поддержки.pdf", size: "1.8 МБ", uploadedAt: "3 июля 2026", status: "Ready" },
-      { id: 2, name: "Политика возвратов.docx", size: "420 КБ", uploadedAt: "3 июля 2026", status: "Processing" }
-    ],
-    conversations: [
-      {
-        id: 1,
-        customer: "Дарья Волкова",
-        lastMessage: "Можно изменить тариф сегодня?",
-        time: "11:42",
-        status: "AI",
-        messages: [
-          { id: 1, author: "Customer", text: "Можно изменить тариф сегодня?", time: "11:40" },
-          { id: 2, author: "AI", text: "Да. Тариф можно изменить в настройках оплаты, изменения применяются сразу.", time: "11:42" }
-        ]
-      },
-      {
-        id: 2,
-        customer: "Иван Петров",
-        lastMessage: "Нужно исправить счет.",
-        time: "10:18",
-        status: "Needs human",
-        messages: [
-          { id: 1, author: "Customer", text: "Нужно исправить счет.", time: "10:16" },
-          { id: 2, author: "AI", text: "Передам вопрос человеку, чтобы безопасно проверить данные оплаты.", time: "10:18" }
-        ]
-      }
-    ],
-  },
-  {
-    id: 2,
-    name: "Ной",
-    role: "Ассистент по продажам",
-    businessDescription: "Помогает потенциальным клиентам понять возможности продукта до демо.",
-    language: "Русский",
-    tone: "Уверенный",
-    workInstruction: "Квалифицируй лидов, уточняй размер компании и предлагай демо при явном интересе.",
-    fallbackMessage: "Я подключу команду продаж, чтобы дать точный ответ.",
-    telegramAdminChatId: "",
-    status: "Disabled",
-    telegramConnected: false,
-    activeDialogs: 0,
-    humanPending: 0,
-    documents: [],
-    conversations: [],
-  }
-];
+const initialEmployees: Employee[] = [];
 
-const API_BASE_URL = "/backend-api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.sentra.fun";
+let accessToken = "";
 
 function fetch(input: RequestInfo | URL, init: RequestInit = {}) {
   return globalThis.fetch(input, { ...init, credentials: "include" });
 }
 
 function authHeaders(): Record<string, string> {
-  return {};
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
 function nowTime() {
@@ -598,6 +536,8 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
         return;
       }
 
+      const data = (await response.json()) as { access_token: string };
+      accessToken = data.access_token;
       onLogin();
     } catch (err) {
       setError("Не удалось подключиться к серверу");
@@ -657,7 +597,7 @@ function AccountRegistration({ setToast }: { setToast: (message: string) => void
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ name, email, password })
       });
       if (!response.ok) throw new Error(await readApiError(response, "Не удалось создать аккаунт"));
