@@ -4,6 +4,11 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.api.routers import create_app
+from backend.core.jwt import get_jwt_key
+from backend.utils.toeken_crypto import get_fernet
+
+get_jwt_key()
+get_fernet()
 
 app = create_app()
 
