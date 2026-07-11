@@ -21,7 +21,7 @@ export function Header() {
         </nav>
         <div className="hidden md:block">
           <Button variant="secondary" href="/admin" showArrow={false}>Войти</Button>
-          <Button href="#lead">Оставить заявку</Button>
+          <Button href="#final-lead">Оставить заявку</Button>
         </div>
         
         <MobileMenu />

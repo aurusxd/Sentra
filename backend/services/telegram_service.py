@@ -83,12 +83,20 @@ class TelegramService:
                 },
             )
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Telegram API returned HTTP {response.status_code} with an invalid response",
+            ) from error
 
         if not data.get("ok"):
+            description = data.get("description", "Unknown Telegram API error")
+            error_code = data.get("error_code", response.status_code)
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to send Telegram message",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Telegram API error {error_code}: {description}",
             )
 
         return data["result"]

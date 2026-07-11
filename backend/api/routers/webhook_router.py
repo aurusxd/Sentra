@@ -145,6 +145,13 @@ async def telegram_webhook(
             detail="Message not created",
         )
 
+    if dialog.is_human_takeover:
+        log.info(
+            "AI response skipped: dialog {} is handled by a human",
+            dialog.id,
+        )
+        return {"ok": True}
+
     token = decrypt_token(channel.token_encrypted)
     log.info(text)
     found_chunks = await vector_store_service.find_vectors(

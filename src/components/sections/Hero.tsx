@@ -25,7 +25,7 @@ export function Hero() {
               Sentra обучается знаниям вашей компании и берет на себя популярные вопросы, чтобы команда тратила время на продажи и сложные обращения.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button href="#lead">Оставить заявку</Button>
+              <Button href="#final-lead">Оставить заявку</Button>
               <Button href="#demo" variant="secondary">
                 Посмотреть админку
               </Button>

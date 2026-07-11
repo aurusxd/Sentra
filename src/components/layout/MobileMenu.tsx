@@ -38,7 +38,7 @@ export function MobileMenu() {
               </a>
             ))}
           </nav>
-          <Button className="mt-3 w-full" href="#lead">
+          <Button className="mt-3 w-full" href="#final-lead">
             Оставить заявку
           </Button>
         </div>
