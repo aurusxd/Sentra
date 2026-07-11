@@ -259,7 +259,7 @@ const initialEmployees: Employee[] = [
   }
 ];
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.sentra.fun";
+const API_BASE_URL = "/backend-api";
 
 function fetch(input: RequestInfo | URL, init: RequestInit = {}) {
   return globalThis.fetch(input, { ...init, credentials: "include" });

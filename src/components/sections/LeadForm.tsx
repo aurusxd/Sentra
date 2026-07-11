@@ -18,8 +18,7 @@ export function LeadForm({ id = "lead" }: { id?: string }) {
     const formData = new FormData(form);
 
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.sentra.fun";
-      const response = await fetch(`${apiBaseUrl}/leads`, {
+      const response = await fetch("/backend-api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

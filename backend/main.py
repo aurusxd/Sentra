@@ -35,7 +35,7 @@ async def reject_untrusted_browser_origins(request: Request, call_next):
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["api.sentra.fun", "localhost", "127.0.0.1", "backend", "testserver"],
+    allowed_hosts=["api.sentra.fun", "sentra.fun", "www.sentra.fun", "localhost", "127.0.0.1", "backend", "testserver"],
 )
 
 app.add_middleware(
