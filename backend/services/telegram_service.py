@@ -30,6 +30,7 @@ class TelegramService:
         self,
         token: str,
         webhook_secret: str,
+        header_secret: str,
     ) -> bool:
         webhook_url = f"{API_URL}/telegram/webhook/{webhook_secret}"
 
@@ -38,6 +39,7 @@ class TelegramService:
                 self._build_url(token, "setWebhook"),
                 json={
                     "url": webhook_url,
+                    "secret_token": header_secret,
                 },
             )
 

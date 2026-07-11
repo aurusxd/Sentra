@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.database.enums import SenderType
 from backend.database.models.message import Message
 from backend.utils.depends import provider
 
@@ -31,6 +32,22 @@ class MessageRepository:
         )
 
         return list(result.scalars().all())
+
+    @provider.inject_session
+    async def client_message_exists(
+        self,
+        dialog_id: int,
+        external_message_id: str,
+        session: AsyncSession,
+    ) -> bool:
+        result = await session.execute(
+            select(Message.id).where(
+                Message.dialog_id == dialog_id,
+                Message.sender_type == SenderType.CLIENT,
+                Message.external_message_id == external_message_id,
+            )
+        )
+        return result.scalar_one_or_none() is not None
 
     @provider.inject_session
     async def get_last_by_dialog_id(

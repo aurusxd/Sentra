@@ -27,6 +27,11 @@ class EmployeeService:
         return employee
 
     async def create(self, owner_id: int, data: EmployeeCreate):
+        if len(await self.repository.get_all(owner_id=owner_id)) >= 10:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Employee limit reached",
+            )
         employee = Employee(
             owner_id=owner_id,
             status="active",

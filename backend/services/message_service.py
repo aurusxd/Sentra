@@ -22,6 +22,12 @@ class MessageService:
 
         return await self.repository.create(message=message)
 
+    async def client_message_exists(self, dialog_id: int, external_message_id: str) -> bool:
+        return await self.repository.client_message_exists(
+            dialog_id=dialog_id,
+            external_message_id=external_message_id,
+        )
+
     async def create_employee_message(
         self,
         dialog_id: int,

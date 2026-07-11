@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import sys
 
@@ -62,8 +63,8 @@ class AppLogger:
             format=self._get_log_format(),
             level=self.console_level,
             colorize=True,
-            backtrace=True,
-            diagnose=True,
+            backtrace=False,
+            diagnose=os.getenv("LOG_DIAGNOSE", "false").lower() == "true",
         )
 
     def _add_file_sink(self, log_dir: Path) -> None:
@@ -77,8 +78,8 @@ class AppLogger:
             retention=self.retention,
             compression="gz",
             encoding="utf-8",
-            backtrace=True,
-            diagnose=True,
+            backtrace=False,
+            diagnose=os.getenv("LOG_DIAGNOSE", "false").lower() == "true",
         )
 
     def _setup_file_handler(self) -> None:

@@ -32,7 +32,7 @@ type EmployeeApiStatus = "active" | "inactive" | "needs_setup";
 type DocumentStatus = "Uploaded" | "Processing" | "Ready" | "Error";
 type ConversationStatus = "AI" | "Human" | "Closed" | "Needs human";
 type EmployeeTab = "Overview" | "Knowledge" | "Telegram" | "Conversations" | "Settings";
-type Screen = "login" | "workspace" | "hire" | "employee";
+type Screen = "login" | "workspace" | "hire" | "employee" | "accounts";
 
 type KnowledgeDocument = {
   id: number;
@@ -259,11 +259,14 @@ const initialEmployees: Employee[] = [
   }
 ];
 
-const API_BASE_URL = "https://api.sentra.fun";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.sentra.fun";
+
+function fetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  return globalThis.fetch(input, { ...init, credentials: "include" });
+}
 
 function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {};
 }
 
 function nowTime() {
@@ -425,8 +428,23 @@ export default function AdminPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialEmployees[0]?.id ?? 0);
   const [activeTab, setActiveTab] = useState<EmployeeTab>("Overview");
   const [toast, setToast] = useState("Рабочее пространство готово");
+  const [canRegisterUsers, setCanRegisterUsers] = useState(false);
 
   const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId) ?? employees[0];
+
+  useEffect(() => {
+    localStorage.removeItem("access_token");
+    fetch(`${API_BASE_URL}/auth/me`)
+      .then(async (response) => {
+        if (response.ok) {
+          const session = (await response.json()) as { can_register_users: boolean };
+          setCanRegisterUsers(session.can_register_users);
+          setScreen("workspace");
+          void loadEmployees();
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   function updateEmployee(id: number, updater: (employee: Employee) => Employee) {
     setEmployees((current) => current.map((employee) => (employee.id === id ? updater(employee) : employee)));
@@ -517,10 +535,10 @@ export default function AdminPage() {
         />
       ) : (
         <div className="flex min-h-screen">
-          <Sidebar screen={screen} onNavigate={setScreen} />
+          <Sidebar screen={screen} onNavigate={setScreen} canRegisterUsers={canRegisterUsers} />
           <div className="min-w-0 flex-1">
             <Topbar
-              title={screen === "hire" ? "Найм сотрудника" : screen === "employee" ? selectedEmployee?.name ?? "Сотрудник" : "Рабочее пространство"}
+              title={screen === "accounts" ? "Регистрация клиентов" : screen === "hire" ? "Найм сотрудника" : screen === "employee" ? selectedEmployee?.name ?? "Сотрудник" : "Рабочее пространство"}
               subtitle="Управляйте цифровыми сотрудниками поддержки."
               onHire={() => setScreen("hire")}
             />
@@ -529,6 +547,7 @@ export default function AdminPage() {
                 <Workspace employees={employees} onHire={() => setScreen("hire")} onOpen={openEmployee} />
               )}
               {screen === "hire" && <HireEmployee onCreate={createEmployee} onCancel={() => setScreen("workspace")} />}
+              {screen === "accounts" && canRegisterUsers && <AccountRegistration setToast={setToast} />}
               {screen === "employee" && selectedEmployee && (
                 <EmployeeWorkspace
                   employee={selectedEmployee}
@@ -551,7 +570,7 @@ export default function AdminPage() {
 
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [name, setName] = useState("admin");
-  const [password, setPassword] = useState("sentra-demo");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -562,7 +581,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://api.sentra.fun/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -578,10 +597,6 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
         setIsLoading(false);
         return;
       }
-
-      const data = await response.json();
-
-      localStorage.setItem("access_token", data.access_token);
 
       onLogin();
     } catch (err) {
@@ -627,10 +642,66 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function Sidebar({ screen, onNavigate }: { screen: Screen; onNavigate: (screen: Screen) => void }) {
+function AccountRegistration({ setToast }: { setToast: (message: string) => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, "Не удалось создать аккаунт"));
+
+      setName("");
+      setEmail("");
+      setPassword("");
+      setToast(`Аккаунт ${name} создан`);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Не удалось создать аккаунт");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold">Новый клиентский аккаунт</h2>
+      <p className="mt-1 text-sm text-slate-500">Создайте доступ после получения заявки. Самостоятельная регистрация отключена.</p>
+      <form className="mt-6 space-y-4" onSubmit={submit}>
+        <Field label="Имя пользователя">
+          <input className="input" minLength={3} pattern="[A-Za-z0-9_.-]+" required value={name} onChange={(event) => setName(event.target.value)} />
+        </Field>
+        <Field label="Email">
+          <input className="input" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </Field>
+        <Field label="Временный пароль (минимум 12 символов)">
+          <input className="input" minLength={12} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </Field>
+        {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600" role="alert">{error}</p> : null}
+        <button className="btn-primary" disabled={isSubmitting} type="submit">
+          <UserRoundCheck size={17} />
+          {isSubmitting ? "Создаём..." : "Создать аккаунт"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function Sidebar({ screen, onNavigate, canRegisterUsers }: { screen: Screen; onNavigate: (screen: Screen) => void; canRegisterUsers: boolean }) {
   const items = [
     { label: "Рабочее пространство", icon: LayoutDashboard, screen: "workspace" as Screen },
     { label: "Сотрудники", icon: UsersRound, screen: "workspace" as Screen },
+    ...(canRegisterUsers ? [{ label: "Аккаунты клиентов", icon: UserRoundCheck, screen: "accounts" as Screen }] : []),
     { label: "Настройки", icon: Settings, screen: "workspace" as Screen }
   ];
 
@@ -1204,7 +1275,7 @@ function Telegram({
   setToast: (message: string) => void;
 
 }) {
-  const [token, setToken] = useState("123456:sentra-demo-token");
+  const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [action, setAction] = useState<"connect" | "check" | "disconnect" | null>(null);
 

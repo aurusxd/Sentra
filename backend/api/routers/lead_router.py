@@ -1,17 +1,18 @@
 from html import escape
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.config import TELEGRAM_LEAD_BOT_TOKEN, TELEGRAM_LEAD_CHAT_ID
 from backend.schemas.lead_schema import LeadCreate, LeadResponse
 from backend.services.telegram_service import TelegramService
 from backend.utils.logger import log
+from backend.utils.rate_limit import rate_limit
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 telegram_service = TelegramService()
 
 
-@router.post("", response_model=LeadResponse)
+@router.post("", response_model=LeadResponse, dependencies=[Depends(rate_limit("leads", 5, 60))])
 async def create_lead(data: LeadCreate) -> LeadResponse:
     # Honeypot field for basic protection from automated form spam.
     if data.website.strip():

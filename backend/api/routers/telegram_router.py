@@ -7,6 +7,7 @@ from backend.services.channel_service import ChannelService
 from backend.services.employee_service import EmployeeService
 from backend.services.telegram_service import TelegramService
 from backend.utils.toeken_crypto import decrypt_token
+from backend.utils.telegram_webhook_auth import telegram_webhook_header_secret
 
 router = APIRouter(
     prefix="/employees/{employee_id}/telegram",
@@ -45,6 +46,7 @@ async def connect_telegram(
     await telegram_service.set_webhook(
         token=data.token,
         webhook_secret=channel.webhook_secret,
+        header_secret=telegram_webhook_header_secret(channel.webhook_secret),
     )
 
     return channel

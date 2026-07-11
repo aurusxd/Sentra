@@ -12,10 +12,13 @@ from backend.database.models.message import Message
 from backend.database.models.document_chunk import DocumentChunk
 
 from alembic import context
+from backend.config import config as app_config
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+sync_database_url = app_config.database.database_url.replace("+asyncpg", "+psycopg")
+config.set_main_option("sqlalchemy.url", sync_database_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

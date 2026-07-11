@@ -5,6 +5,7 @@ from backend.database.models.user import User
 from backend.schemas.knowledge_schema import KnowledgeFileRead
 from backend.services.employee_service import EmployeeService
 from backend.services.knowledge_file_service import KnowledgeFileService
+from backend.utils.rate_limit import rate_limit
 
 
 router = APIRouter(
@@ -38,6 +39,7 @@ async def get_knowledge_files(
     "/upload",
     response_model=KnowledgeFileRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("knowledge-upload", 20, 3600))],
 )
 async def upload_knowledge_file(
     employee_id: int,

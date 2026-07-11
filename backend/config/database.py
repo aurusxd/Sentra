@@ -5,7 +5,7 @@ class DbConfig(BaseModel):
     DB_ECHO: bool = False
 
     POSTGRES_USER: str = "sentra"
-    POSTGRES_PASSWORD: str = "password"
+    POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "sentra"
     POSTGRES_PORT: int = 5432
     POSTGRES_HOST: str = "db"

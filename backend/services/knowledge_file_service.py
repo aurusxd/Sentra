@@ -1,6 +1,8 @@
-import shutil
 from pathlib import Path
 from uuid import uuid4
+from zipfile import BadZipFile, ZipFile
+
+import pymupdf
 
 from fastapi import HTTPException, UploadFile, status
 
@@ -10,7 +12,35 @@ from backend.services.loader_service import loader_service
 from backend.services.embedding_service import EmbeddingService
 
 UPLOAD_DIR = Path("uploads/knowledge")
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_DOCX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
+MAX_PDF_PAGES = 500
 embedding_service = EmbeddingService()
+
+
+def validate_uploaded_file(path: Path, extension: str) -> None:
+    if extension == ".pdf":
+        if not path.read_bytes()[:5].startswith(b"%PDF-"):
+            raise ValueError("Invalid PDF signature")
+        with pymupdf.open(path) as document:
+            if document.page_count > MAX_PDF_PAGES:
+                raise ValueError(f"PDF cannot contain more than {MAX_PDF_PAGES} pages")
+    elif extension == ".docx":
+        try:
+            with ZipFile(path) as archive:
+                names = set(archive.namelist())
+                if "[Content_Types].xml" not in names or "word/document.xml" not in names:
+                    raise ValueError("Invalid DOCX structure")
+                total_uncompressed = sum(item.file_size for item in archive.infolist())
+                if total_uncompressed > MAX_DOCX_UNCOMPRESSED_BYTES:
+                    raise ValueError("DOCX archive is too large after decompression")
+                for item in archive.infolist():
+                    if item.compress_size and item.file_size / item.compress_size > 100:
+                        raise ValueError("Suspicious DOCX compression ratio")
+        except BadZipFile as error:
+            raise ValueError("Invalid DOCX archive") from error
+    else:
+        path.read_text(encoding="utf-8")
 
 class KnowledgeFileService:
     def __init__(self):
@@ -40,6 +70,13 @@ class KnowledgeFileService:
         employee_id: int,
         upload_file: UploadFile,
     ) -> KnowledgeFile:
+        existing_files = await self.repository.get_all_by_employee(employee_id=employee_id)
+        if len(existing_files) >= 50:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Knowledge file limit reached",
+            )
+
         if upload_file.filename is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -62,8 +99,30 @@ class KnowledgeFileService:
         stored_filename = f"{uuid4().hex}{extension}"
         file_path = UPLOAD_DIR / stored_filename
 
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(upload_file.file, buffer)
+        size_bytes = 0
+        try:
+            with file_path.open("wb") as buffer:
+                while chunk := await upload_file.read(1024 * 1024):
+                    size_bytes += len(chunk)
+                    if size_bytes > MAX_UPLOAD_BYTES:
+                        raise HTTPException(
+                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail="File cannot exceed 10 MB",
+                        )
+                    buffer.write(chunk)
+
+            validate_uploaded_file(file_path, extension)
+        except HTTPException:
+            file_path.unlink(missing_ok=True)
+            raise
+        except (OSError, UnicodeError, ValueError) as error:
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(error) or "Invalid document",
+            ) from error
+        finally:
+            await upload_file.close()
 
         size_bytes = file_path.stat().st_size
 

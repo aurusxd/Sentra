@@ -1,6 +1,7 @@
+import hmac
 from html import escape
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from backend.core.security import get_current_user
 from backend.database.enums import ChannelStatus, EmployeeStatus
@@ -14,6 +15,8 @@ from backend.services.telegram_service import TelegramService
 from backend.services.vector_store_service import vector_store_service
 from backend.utils.toeken_crypto import decrypt_token
 from backend.utils.logger import log
+from backend.utils.rate_limit import enforce_rate_limit, rate_limit
+from backend.utils.telegram_webhook_auth import telegram_webhook_header_secret
 
 router = APIRouter(
     prefix="/telegram",
@@ -81,10 +84,11 @@ async def notify_admin_about_fallback(
         log.exception("Admin fallback notification was not sent")
 
 
-@router.post("/webhook/{webhook_secret}")
+@router.post("/webhook/{webhook_secret}", dependencies=[Depends(rate_limit("telegram-webhook", 600, 60))])
 async def telegram_webhook(
     webhook_secret: str,
     update: dict,
+    telegram_secret: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
 ):
     channel = await channel_service.get_by_webhook_secret(
         webhook_secret=webhook_secret,
@@ -95,6 +99,10 @@ async def telegram_webhook(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Channel not found",
         )
+
+    expected_secret = telegram_webhook_header_secret(webhook_secret)
+    if not telegram_secret or not hmac.compare_digest(telegram_secret, expected_secret):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Telegram webhook secret")
 
     if channel.status != ChannelStatus.CONNECTED:
         log.error("Channel is not connected")
@@ -120,6 +128,13 @@ async def telegram_webhook(
         log.error("Unable to get text or chat_id")
         return {"ok": True}
 
+    await enforce_rate_limit(
+        scope=f"telegram-chat:{channel.id}",
+        key_value=str(chat_id),
+        limit=20,
+        window_seconds=60,
+    )
+
     dialog = await dialog_service.get_or_create(
         employee_id=channel.employee_id,
         channel_id=channel.id,
@@ -134,10 +149,15 @@ async def telegram_webhook(
             detail="Dialog not created",
         )
 
+    external_message_id = str(message.get("message_id"))
+    if await message_service.client_message_exists(dialog.id, external_message_id):
+        log.info("Duplicate Telegram message ignored for dialog {}", dialog.id)
+        return {"ok": True}
+
     msg = await message_service.create_client_message(
         dialog_id=dialog.id,
         text=text,
-        external_message_id=str(message.get("message_id")),
+        external_message_id=external_message_id,
     )
     if msg is None:
         raise HTTPException(
@@ -153,7 +173,7 @@ async def telegram_webhook(
         return {"ok": True}
 
     token = decrypt_token(channel.token_encrypted)
-    log.info(text)
+    log.info("Processing Telegram message for dialog {}", dialog.id)
     found_chunks = await vector_store_service.find_vectors(
         employee_id=channel.employee_id,
         question=text,
@@ -187,7 +207,7 @@ async def telegram_webhook(
         else:
             answer = agent_response["answer"]
 
-    await telegram_service.send_message(
+    telegram_answer = await telegram_service.send_message(
         token=token,
         chat_id=chat_id,
         text=answer,
@@ -207,7 +227,7 @@ async def telegram_webhook(
     employee_msg = await message_service.create_employee_message(
         dialog_id=dialog.id,
         text=answer,
-        external_message_id=str(message.get("message_id")),
+        external_message_id=str(telegram_answer.get("message_id")),
     )
     if employee_msg is None:
         raise HTTPException(

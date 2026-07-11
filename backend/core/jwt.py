@@ -1,10 +1,16 @@
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
 
-from backend.config import JWT_KEY, config
+from backend.config import JWT_KEY
 
 ALGORITHM = "HS256"
+
+
+def get_jwt_key() -> str:
+    if not JWT_KEY or len(JWT_KEY) < 32:
+        raise RuntimeError("JWT_KEY must contain at least 32 characters")
+    return JWT_KEY
 
 
 def create_access_token(
@@ -20,7 +26,7 @@ def create_access_token(
 
     return jwt.encode(
         payload,
-        JWT_KEY,
+        get_jwt_key(),
         algorithm=ALGORITHM,
     )
 
@@ -29,7 +35,7 @@ def decode_access_token(token: str) -> int | None:
     try:
         payload = jwt.decode(
             token,
-            JWT_KEY,
+            get_jwt_key(),
             algorithms=[ALGORITHM],
         )
 
@@ -40,5 +46,5 @@ def decode_access_token(token: str) -> int | None:
 
         return int(user_id)
 
-    except JWTError:
+    except (jwt.InvalidTokenError, ValueError):
         return None

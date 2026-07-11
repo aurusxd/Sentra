@@ -42,8 +42,6 @@ class EmbeddingService:
                 embedding_function=openrouter_embeddings,
             )
 
-            vector_store.add_documents(documents)
-
             ids = vector_store.add_documents(documents)
 
             log.success(
