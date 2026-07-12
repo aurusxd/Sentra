@@ -522,7 +522,7 @@ export default function AdminPage() {
 }
 
 function LoginScreen({ onLogin }: { onLogin: (canRegisterUsers: boolean) => void }) {
-  const [name, setName] = useState("admin");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
