@@ -91,7 +91,7 @@ async def reindex_knowledge_file(
         owner_id=current_user.id,
     )
 
-    file = await knowledge_file_service.mark_processing(
+    file = await knowledge_file_service.reindex(
         file_id=file_id,
         employee_id=employee_id,
     )

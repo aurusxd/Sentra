@@ -137,14 +137,53 @@ class KnowledgeFileService:
         )
 
         file = await self.repository.create(file=knowledge_file)
-        chunks = await loader_service.document_loader(doc=file,employee_id=employee_id)
-        await embedding_service.add_chunks(
+        return await self.process(file=file, employee_id=employee_id)
+
+    async def process(
+        self,
+        file: KnowledgeFile,
+        employee_id: int,
+    ) -> KnowledgeFile:
+        """Index a knowledge file and always persist its terminal status."""
+        file.status = "processing"
+        file.error_message = None
+        await self.repository.update(file=file)
+
+        try:
+            chunks = await loader_service.document_loader(
+                doc=file,
+                employee_id=employee_id,
+            )
+            indexed = await embedding_service.add_chunks(
+                employee_id=employee_id,
+                knowledge_file_id=file.id,
+                document_name=file.original_filename,
+                chunks=chunks,
+            )
+            if not indexed:
+                raise RuntimeError("Document indexing failed")
+        except Exception as error:
+            return await self.mark_error(
+                file_id=file.id,
+                employee_id=employee_id,
+                error_message=str(error) or "Document indexing failed",
+            )
+
+        return await self.mark_ready(
+            file_id=file.id,
             employee_id=employee_id,
-            knowledge_file_id=file.id,
-            document_name=file.original_filename,
-            chunks=chunks
         )
-        return file
+
+    async def reindex(
+        self,
+        file_id: int,
+        employee_id: int,
+    ) -> KnowledgeFile:
+        file = await self.get_by_id(
+            file_id=file_id,
+            employee_id=employee_id,
+        )
+        return await self.process(file=file, employee_id=employee_id)
 
     async def mark_processing(
         self,

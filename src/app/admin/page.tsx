@@ -1131,7 +1131,7 @@ function Knowledge({
         ...current,
         documents: current.documents.map((item) => (item.id === documentId ? updatedDocument : item))
       }));
-      setToast("Документ отправлен на обработку");
+      setToast(updatedDocument.status === "Ready" ? "Документ обновлен" : "Не удалось обработать документ");
     } catch (err) {
       setError("Не удалось отправить документ на повторную обработку");
     }
