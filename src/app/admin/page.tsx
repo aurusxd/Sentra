@@ -739,7 +739,7 @@ function Workspace({ employees, onHire, onOpen }: { employees: Employee[]; onHir
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold">Добрый день, Никита</h2>
+            <h2 className="text-base font-semibold">Добрый день</h2>
             <p className="text-sm text-slate-500">Ваша цифровая команда поддержки готова к работе.</p>
           </div>
           <button className="btn-secondary" onClick={onHire} type="button">
