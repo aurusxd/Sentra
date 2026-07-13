@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://sentra.ai"),
   title: "Sentra - AI-сотрудник для клиентской поддержки",
   description: "Sentra автоматизирует ответы на частые вопросы клиентов через AI-сотрудника в Telegram.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg"
+  },
   openGraph: {
     title: "Sentra - AI-сотрудник поддержки",
     description: "Telegram-бот, обученный знаниям компании и готовый отвечать клиентам 24/7.",
