@@ -563,7 +563,7 @@ function LoginScreen({ onLogin }: { onLogin: (canRegisterUsers: boolean) => void
 
       onLogin(session.can_register_users);
     } catch (err) {
-      setError("Не удалось подключиться к серверу");
+      setError("Не удалось подключиться к серверy");
     } finally {
       setIsLoading(false);
     }
