@@ -180,32 +180,32 @@ async def telegram_webhook(
     )
     message_context = "\n\n".join(chunk.page_content for chunk in found_chunks)
 
-    fallback_used = False
+    agent_response = await ask_agent(
+        question=text,
+        post=employee.role,
+        description=employee.business_description,
+        instruction=employee.instruction,
+        tone=employee.tone,
+        context=message_context,
+    )
 
-    if not found_chunks:
-        answer = employee.fallback_message
-        fallback_used = True
-    else:
-        agent_response = await ask_agent(
-            question=text,
-            post=employee.role,
-            description=employee.business_description,
-            instruction=employee.instruction,
-            tone=employee.tone,
-            context=message_context,
+    if agent_response is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Answer not taked",
         )
 
-        if agent_response is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Answer not taked",
-            )
+    handoff_required = agent_response["status"] == "handoff"
+    if handoff_required:
+        answer = employee.fallback_message
+    else:
+        answer = agent_response["answer"]
 
-        if agent_response["status"] == "fallback" or not agent_response["answer"]:
-            answer = employee.fallback_message
-            fallback_used = True
-        else:
-            answer = agent_response["answer"]
+    # Defensive fallback for a malformed model response. This is treated as a
+    # handoff because silently sending an empty Telegram message is not useful.
+    if not answer:
+        answer = employee.fallback_message
+        handoff_required = True
 
     telegram_answer = await telegram_service.send_message(
         token=token,
@@ -213,7 +213,7 @@ async def telegram_webhook(
         text=answer,
     )
 
-    if fallback_used:
+    if handoff_required:
         await dialog_service.mark_needs_human(dialog_id=dialog.id)
         await notify_admin_about_fallback(
             token=token,
