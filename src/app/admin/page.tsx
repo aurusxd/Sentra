@@ -300,13 +300,17 @@ function mapMessageAuthor(senderType: SenderType): ChatMessage["author"] {
 }
 
 function mapConversation(dialog: DialogResponse): Conversation {
-  const messages = dialog.messages.map((message) => ({
+  const orderedMessages = [...dialog.messages].sort((left, right) => {
+    const timeDifference = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+    return timeDifference || left.id - right.id;
+  });
+  const messages = orderedMessages.map((message) => ({
     id: message.id,
     author: mapMessageAuthor(message.sender_type),
     text: message.text,
     time: formatTime(message.created_at)
   }));
-  const lastMessage = dialog.messages.at(-1);
+  const lastMessage = orderedMessages.at(-1);
   const customer = dialog.client_name || dialog.client_username || `Клиент ${dialog.client_external_id}`;
 
   return {

@@ -61,6 +61,7 @@ class Dialog(Base):
     messages: Mapped[list["Message"]] = relationship(
         back_populates="dialog",
         cascade="all, delete-orphan",
+        order_by="(Message.created_at, Message.id)",
     )
 
     __table_args__ = (

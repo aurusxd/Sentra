@@ -28,7 +28,7 @@ class MessageRepository:
         result = await session.execute(
             select(Message)
             .where(Message.dialog_id == dialog_id)
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.asc(), Message.id.asc())
         )
 
         return list(result.scalars().all())
@@ -59,7 +59,7 @@ class MessageRepository:
         result = await session.execute(
             select(Message)
             .where(Message.dialog_id == dialog_id)
-            .order_by(Message.created_at.desc())
+            .order_by(Message.created_at.desc(), Message.id.desc())
             .limit(limit)
         )
 
