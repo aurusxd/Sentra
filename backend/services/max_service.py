@@ -1,3 +1,5 @@
+import ssl
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -10,6 +12,10 @@ class MaxService:
     def __init__(self) -> None:
         self.api_url = "https://platform-api2.max.ru"
         self.timeout = 10.0
+        self.ssl_context = ssl.create_default_context()
+        self.ssl_context.load_verify_locations(
+            cafile=Path(__file__).resolve().parent.parent / "certs" / "max_trust_bundle.pem"
+        )
 
     def _build_url(self, method: str) -> str:
         return f"{self.api_url}/{method.lstrip('/')}"
@@ -29,7 +35,7 @@ class MaxService:
         invalid_token_is_bad_request: bool = False,
     ) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, verify=self.ssl_context) as client:
                 response = await client.request(
                     method,
                     self._build_url(endpoint),
