@@ -44,6 +44,9 @@ class Employee(Base):
     telegram_admin_chat_id: Mapped[str | None] = mapped_column(
         nullable=True,
     )
+    max_admin_chat_id: Mapped[str | None] = mapped_column(
+        nullable=True,
+    )
     status: Mapped[EmployeeStatus] = mapped_column(
         String(50),
         default=EmployeeStatus.NEEDS_SETUP,

@@ -59,6 +59,7 @@ type EmployeeResponse = {
   instruction: string;
   fallback_message: string;
   telegram_admin_chat_id: string | null;
+  max_admin_chat_id: string | null;
   status: EmployeeApiStatus;
   created_at: string;
   updated_at: string | null;
@@ -135,6 +136,7 @@ type Employee = {
   workInstruction: string;
   fallbackMessage: string;
   telegramAdminChatId: string;
+  maxAdminChatId: string;
   status: EmployeeStatus;
   telegramConnected: boolean;
   telegramBotUsername?: string;
@@ -157,6 +159,7 @@ type EmployeeForm = {
   workInstruction: string;
   fallbackMessage: string;
   telegramAdminChatId: string;
+  maxAdminChatId: string;
 };
 
 const tabs: EmployeeTab[] = ["Overview", "Knowledge", "Telegram", "Max", "Conversations", "Settings"];
@@ -197,7 +200,8 @@ const emptyForm: EmployeeForm = {
   tone: "Дружелюбный",
   workInstruction: "",
   fallbackMessage: "Я пока не уверен в ответе. Передам вопрос человеку из команды.",
-  telegramAdminChatId: ""
+  telegramAdminChatId: "",
+  maxAdminChatId: ""
 };
 
 const initialEmployees: Employee[] = [];
@@ -326,6 +330,7 @@ function mapEmployee(employee: EmployeeResponse): Employee {
     workInstruction: employee.instruction,
     fallbackMessage: employee.fallback_message,
     telegramAdminChatId: employee.telegram_admin_chat_id ?? "",
+    maxAdminChatId: employee.max_admin_chat_id ?? "",
     status: mapEmployeeStatus(employee.status),
     telegramConnected: false,
     maxConnected: false,
@@ -347,6 +352,7 @@ function mergeEmployeeResponse(current: Employee, employee: EmployeeResponse): E
     workInstruction: employee.instruction,
     fallbackMessage: employee.fallback_message,
     telegramAdminChatId: employee.telegram_admin_chat_id ?? current.telegramAdminChatId,
+    maxAdminChatId: employee.max_admin_chat_id ?? current.maxAdminChatId,
     status: mapEmployeeStatus(employee.status)
   };
 }
@@ -447,6 +453,7 @@ export default function AdminPage() {
       workInstruction: form.workInstruction,
       fallbackMessage: form.fallbackMessage,
       telegramAdminChatId: form.telegramAdminChatId,
+      maxAdminChatId: form.maxAdminChatId,
       status: "Enabled",
       telegramConnected: false,
       maxConnected: false,
@@ -821,6 +828,7 @@ function HireEmployee({ onCreate, onCancel }: { onCreate: (form: EmployeeForm, e
         instruction: form.workInstruction,
         fallback_message: form.fallbackMessage,
         telegram_admin_chat_id: form.telegramAdminChatId.trim() || null,
+        max_admin_chat_id: form.maxAdminChatId.trim() || null,
       }),
   });
 
@@ -888,6 +896,15 @@ function HireEmployee({ onCreate, onCancel }: { onCreate: (form: EmployeeForm, e
             onChange={(event) => setField("telegramAdminChatId", event.target.value)}
             placeholder="Например: 123456789"
             value={form.telegramAdminChatId}
+          />
+        </Field>
+        
+        <Field className="lg:col-span-2" label="Max chat ID админа">
+          <input
+            className="input"
+            onChange={(event) => setField("maxAdminChatId", event.target.value)}
+            placeholder="Например: 123456789"
+            value={form.maxAdminChatId}
           />
         </Field>
         <div className="flex flex-wrap gap-3 lg:col-span-2">
@@ -1782,7 +1799,8 @@ function EmployeeSettings({
     tone: employee.tone,
     workInstruction: employee.workInstruction,
     fallbackMessage: employee.fallbackMessage,
-    telegramAdminChatId: employee.telegramAdminChatId
+    telegramAdminChatId: employee.telegramAdminChatId,
+    maxAdminChatId: employee.maxAdminChatId
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1810,7 +1828,8 @@ function EmployeeSettings({
           tone: form.tone,
           instruction: form.workInstruction,
           fallback_message: form.fallbackMessage,
-          telegram_admin_chat_id: form.telegramAdminChatId.trim() || null
+          telegram_admin_chat_id: form.telegramAdminChatId.trim() || null,
+          max_admin_chat_id: form.maxAdminChatId.trim() || null
         })
       });
 
@@ -1865,6 +1884,14 @@ function EmployeeSettings({
             onChange={(event) => setField("telegramAdminChatId", event.target.value)}
             placeholder="Например: 123456789"
             value={form.telegramAdminChatId}
+          />
+        </Field>
+        <Field className="lg:col-span-2" label="Max chat ID админа">
+          <input
+            className="input"
+            onChange={(event) => setField("maxAdminChatId", event.target.value)}
+            placeholder="Например: 123456789"
+            value={form.maxAdminChatId}
           />
         </Field>
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600 lg:col-span-2">{error}</p>}

@@ -1,4 +1,5 @@
 import hmac
+from html import escape
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
@@ -24,6 +25,54 @@ def format_max_client_name(sender: dict) -> str:
     first_name = sender.get("first_name") or ""
     last_name = sender.get("last_name") or ""
     return f"{first_name} {last_name}".strip() or sender.get("name") or "Неизвестно"
+
+
+def build_max_operator_help_message(
+    employee_name: str,
+    sender: dict,
+    chat_id: int | str,
+    text: str,
+) -> str:
+    username = sender.get("username")
+    formatted_username = (
+        f"@{username}" if username and not username.startswith("@") else username or "-"
+    )
+    return (
+        "🔴 Требуется помощь оператора\n\n"
+        f"AI-сотрудник: {escape(employee_name)}\n"
+        f"Клиент: {escape(format_max_client_name(sender))}\n"
+        f"Username: {escape(formatted_username)}\n"
+        f"MAX chat ID: {escape(str(chat_id))}\n\n"
+        "Сообщение:\n"
+        f"{escape(text)}"
+    )
+
+
+async def notify_max_admin_about_fallback(
+    token: str,
+    admin_chat_id: str | None,
+    employee_name: str,
+    sender: dict,
+    chat_id: int | str,
+    text: str,
+) -> None:
+    if not admin_chat_id:
+        log.warning("MAX admin chat id is not set")
+        return
+
+    try:
+        await max_service.send_message(
+            token=token,
+            chat_id=admin_chat_id,
+            text=build_max_operator_help_message(
+                employee_name=employee_name,
+                sender=sender,
+                chat_id=chat_id,
+                text=text,
+            ),
+        )
+    except Exception:
+        log.exception("MAX admin fallback notification was not sent")
 
 
 @router.post(
@@ -116,13 +165,22 @@ async def max_webhook(
         answer = employee.fallback_message
         handoff_required = True
 
+    token = decrypt_token(channel.token_encrypted)
     max_answer = await max_service.send_message(
-        token=decrypt_token(channel.token_encrypted),
+        token=token,
         chat_id=chat_id,
         text=answer,
     )
     if handoff_required:
         await dialog_service.mark_needs_human(dialog_id=dialog.id)
+        await notify_max_admin_about_fallback(
+            token=token,
+            admin_chat_id=employee.max_admin_chat_id,
+            employee_name=employee.name,
+            sender=sender,
+            chat_id=chat_id,
+            text=text,
+        )
 
     answer_body = max_answer.get("body") or {}
     await message_service.create_employee_message(

@@ -19,6 +19,7 @@ class EmployeeCreate(BaseModel):
     instruction: str
     fallback_message: str
     telegram_admin_chat_id: str | None = None
+    max_admin_chat_id: str | None = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -30,6 +31,7 @@ class EmployeeUpdate(BaseModel):
     instruction: str | None = None
     fallback_message: str | None = None
     telegram_admin_chat_id: str | None = None
+    max_admin_chat_id: str | None = None
     status: EmployeeStatus | None = None
 
 
@@ -43,6 +45,7 @@ class EmployeeRead(BaseModel):
     instruction: str
     fallback_message: str
     telegram_admin_chat_id: str | None
+    max_admin_chat_id: str | None
     status: EmployeeStatus
     created_at: datetime
     updated_at: datetime | None
