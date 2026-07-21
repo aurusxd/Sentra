@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 class ChannelType(str, Enum):
     TELEGRAM = "telegram"
+    MAX = "max"
 
 
 class ChannelStatus(str, Enum):
@@ -52,3 +53,7 @@ class TelegramConnectionStatus(BaseModel):
     bot_username: str | None
 
     status: ChannelStatus
+
+
+class MaxConnectionStatus(TelegramConnectionStatus):
+    pass

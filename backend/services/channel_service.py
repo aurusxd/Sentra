@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
 from backend.database.models.channel import Channel
-from backend.database.enums import ChannelStatus
+from backend.database.enums import ChannelStatus, ChannelType
 from backend.repositories.channel_repository import ChannelRepository
 from backend.schemas.channel_schema import ChannelConnect
 from backend.utils.toeken_crypto import encrypt_token
@@ -35,20 +35,27 @@ class ChannelService:
             employee_id=employee_id,
         )
 
+    async def get_max_by_employee_id(self, employee_id: int) -> Channel | None:
+        return await self.repository.get_max_by_employee_id(
+            employee_id=employee_id,
+        )
+
     async def create(
         self,
         data: ChannelConnect,
         employee_id: int,
         bot_id: int,
-        bot_username: str,
+        bot_username: str | None,
     ) -> Channel:
         existing_channel = await self.repository.get_by_external_id(
             channel_type=data.type,
             external_id=str(bot_id),
         )
 
-        employee_channel = await self.repository.get_telegram_by_employee_id(
-            employee_id=employee_id,
+        employee_channel = (
+            await self.repository.get_telegram_by_employee_id(employee_id=employee_id)
+            if data.type == ChannelType.TELEGRAM
+            else await self.repository.get_max_by_employee_id(employee_id=employee_id)
         )
 
         if existing_channel is not None and existing_channel.employee_id != employee_id:
@@ -61,7 +68,7 @@ class ChannelService:
             if existing_channel is not None and existing_channel.id != employee_channel.id:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="This employee already has another Telegram channel",
+                    detail=f"This employee already has another {data.type.value} channel",
                 )
 
             employee_channel.token_encrypted = encrypt_token(data.token)
@@ -100,15 +107,21 @@ class ChannelService:
 
         return await self.repository.update(channel=channel)
 
-    async def disconnect(self, employee_id: int) -> Channel:
-        channel = await self.repository.get_telegram_by_employee_id(
-            employee_id=employee_id,
+    async def disconnect(
+        self,
+        employee_id: int,
+        channel_type: ChannelType = ChannelType.TELEGRAM,
+    ) -> Channel:
+        channel = (
+            await self.repository.get_telegram_by_employee_id(employee_id=employee_id)
+            if channel_type == ChannelType.TELEGRAM
+            else await self.repository.get_max_by_employee_id(employee_id=employee_id)
         )
 
         if channel is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Telegram channel not found",
+                detail=f"{channel_type.value.capitalize()} channel not found",
             )
 
         channel.status = ChannelStatus.DISCONNECTED

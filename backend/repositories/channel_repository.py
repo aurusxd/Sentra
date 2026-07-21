@@ -69,6 +69,21 @@ class ChannelRepository:
 
         return result.scalar_one_or_none()
 
+
+    @provider.inject_session
+    async def get_max_by_employee_id(
+        self,
+        employee_id: int,
+        session: AsyncSession,
+    ) -> Channel | None:
+        result = await session.execute(
+            select(Channel).where(
+                Channel.employee_id == employee_id,
+                Channel.type == "max",
+            )
+        )
+
+        return result.scalar_one_or_none()
     @provider.inject_session
     async def get_by_external_id(
         self,

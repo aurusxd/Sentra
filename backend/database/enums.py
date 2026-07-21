@@ -17,6 +17,7 @@ class KnowledgeFileStatus(str, Enum):
 
 class ChannelType(str, Enum):
     TELEGRAM = "telegram"
+    MAX = "max"
 
 
 class ChannelStatus(str, Enum):

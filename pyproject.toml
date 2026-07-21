@@ -26,4 +26,5 @@ dependencies = [
     "textloader>=0.0.9",
     "uvicorn>=0.50.0",
     "docx2txt>=0.9",
+    "maxapi>=1.2.1",
 ]

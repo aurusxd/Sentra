@@ -235,5 +235,5 @@ async def telegram_webhook(
             detail="Employee message not created",
         )
 
-    log.success(f"All its fine, answe:{answer}")
+    log.success(f"All its fine, answer:{answer}")
     return {"ok": True}

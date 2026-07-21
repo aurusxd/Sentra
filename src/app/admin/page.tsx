@@ -30,7 +30,7 @@ type EmployeeStatus = "Enabled" | "Disabled";
 type EmployeeApiStatus = "active" | "inactive" | "needs_setup";
 type DocumentStatus = "Uploaded" | "Processing" | "Ready" | "Error";
 type ConversationStatus = "AI" | "Human" | "Closed" | "Needs human";
-type EmployeeTab = "Overview" | "Knowledge" | "Telegram" | "Conversations" | "Settings";
+type EmployeeTab = "Overview" | "Knowledge" | "Telegram" | "Max" | "Conversations" | "Settings";
 type Screen = "login" | "workspace" | "hire" | "employee" | "accounts";
 
 type KnowledgeDocument = {
@@ -79,6 +79,9 @@ type TelegramConnectionResponse = {
   bot_username: string | null;
   status: "connected" | "disconnected" | "error";
 };
+
+type MaxChannelResponse = TelegramChannelResponse;
+type MaxConnectionResponse = TelegramConnectionResponse;
 
 type DialogApiStatus = "active" | "resolved" | "needs_human";
 type SenderType = "client" | "employee" | "human";
@@ -136,6 +139,9 @@ type Employee = {
   telegramConnected: boolean;
   telegramBotUsername?: string;
   telegramConnectedAt?: string;
+  maxConnected: boolean;
+  maxBotUsername?: string;
+  maxConnectedAt?: string;
   activeDialogs: number;
   humanPending: number;
   documents: KnowledgeDocument[];
@@ -153,12 +159,13 @@ type EmployeeForm = {
   telegramAdminChatId: string;
 };
 
-const tabs: EmployeeTab[] = ["Overview", "Knowledge", "Telegram", "Conversations", "Settings"];
+const tabs: EmployeeTab[] = ["Overview", "Knowledge", "Telegram", "Max", "Conversations", "Settings"];
 
 const tabLabels: Record<EmployeeTab, string> = {
   Overview: "Обзор",
   Knowledge: "База знаний",
   Telegram: "Telegram",
+  Max: "Max",
   Conversations: "Диалоги",
   Settings: "Настройки"
 };
@@ -321,6 +328,7 @@ function mapEmployee(employee: EmployeeResponse): Employee {
     telegramAdminChatId: employee.telegram_admin_chat_id ?? "",
     status: mapEmployeeStatus(employee.status),
     telegramConnected: false,
+    maxConnected: false,
     activeDialogs: 0,
     humanPending: 0,
     documents: [],
@@ -441,6 +449,7 @@ export default function AdminPage() {
       telegramAdminChatId: form.telegramAdminChatId,
       status: "Enabled",
       telegramConnected: false,
+      maxConnected: false,
       activeDialogs: 0,
       humanPending: 0,
       documents: [],
@@ -937,6 +946,7 @@ function EmployeeWorkspace({
       {activeTab === "Overview" && <Overview employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Knowledge" && <Knowledge employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Telegram" && <Telegram employee={employee} onUpdate={onUpdate} setToast={setToast} />}
+      {activeTab === "Max" && <Max employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Conversations" && <Conversations employee={employee} onUpdate={onUpdate} setToast={setToast} />}
       {activeTab === "Settings" && <EmployeeSettings employee={employee} onUpdate={onUpdate} onDelete={onDelete} setToast={setToast} />}
     </section>
@@ -1396,6 +1406,135 @@ function Telegram({
           <InfoRow label="Имя бота" value={employee.telegramBotUsername ?? "Не подключен"} />
           <InfoRow label="Статус" value={employee.telegramConnected ? "Подключен" : "Отключен"} />
           <InfoRow label="Подключен" value={employee.telegramConnectedAt ?? "-"} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Max({
+  employee,
+  onUpdate,
+  setToast
+}: {
+  employee: Employee;
+  onUpdate: (updater: (employee: Employee) => Employee) => void;
+  setToast: (message: string) => void;
+}) {
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+  const [action, setAction] = useState<"connect" | "check" | "disconnect" | null>(null);
+
+  useEffect(() => {
+    void checkMax(true);
+  }, [employee.id]);
+
+  async function connectMax() {
+    if (!token.trim()) {
+      setError("Введите токен Max-бота");
+      return;
+    }
+
+    try {
+      setError("");
+      setAction("connect");
+      const response = await fetch(`${API_BASE_URL}/employees/${employee.id}/max/connect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ type: "max", token: token.trim() })
+      });
+      if (!response.ok) throw new Error(await readApiError(response, "Не удалось подключить Max"));
+
+      const channel = (await response.json()) as MaxChannelResponse;
+      onUpdate((current) => ({
+        ...current,
+        maxConnected: channel.status === "connected",
+        maxBotUsername: formatTelegramUsername(channel.external_username),
+        maxConnectedAt: channel.connected_at ? formatDateTime(channel.connected_at) : formatDateTime(channel.created_at)
+      }));
+      setToken("");
+      setToast("Max подключен");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось подключить Max");
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function checkMax(silent = false) {
+    try {
+      setError("");
+      setAction("check");
+      const response = await fetch(`${API_BASE_URL}/employees/${employee.id}/max/check`, { headers: authHeaders() });
+      if (!response.ok) throw new Error(await readApiError(response, "Не удалось проверить Max"));
+
+      const connection = (await response.json()) as MaxConnectionResponse;
+      onUpdate((current) => ({
+        ...current,
+        maxConnected: connection.connected,
+        maxBotUsername: formatTelegramUsername(connection.bot_username),
+        maxConnectedAt: connection.connected ? current.maxConnectedAt ?? "Проверено только что" : undefined
+      }));
+      if (!silent) setToast(connection.connected ? "Max подключен" : "Max не подключен");
+    } catch (err) {
+      if (!silent) setError(err instanceof Error ? err.message : "Не удалось проверить Max");
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function disconnectMax() {
+    try {
+      setError("");
+      setAction("disconnect");
+      const response = await fetch(`${API_BASE_URL}/employees/${employee.id}/max/disconnect`, {
+        method: "DELETE",
+        headers: authHeaders()
+      });
+      if (!response.ok) throw new Error(await readApiError(response, "Не удалось отключить Max"));
+
+      onUpdate((current) => ({
+        ...current,
+        maxConnected: false,
+        maxBotUsername: undefined,
+        maxConnectedAt: undefined
+      }));
+      setToast("Max отключен");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отключить Max");
+    } finally {
+      setAction(null);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <FormHeader title="Max" subtitle="Подключите бота в Max, чтобы принимать сообщения клиентов." />
+      <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
+        <div className="space-y-4">
+          <Field label="Токен Max-бота">
+            <input className="input" onChange={(event) => setToken(event.target.value)} placeholder="Введите токен бота" type="password" value={token} />
+          </Field>
+          {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+          <div className="flex flex-wrap gap-3">
+            <button className="btn-primary" disabled={action !== null} onClick={connectMax} type="button">
+              <Bot size={17} />
+              {action === "connect" ? "Подключаем..." : "Подключить"}
+            </button>
+            <button className="btn-secondary" disabled={action !== null} onClick={() => checkMax()} type="button">
+              <ShieldCheck size={17} />
+              {action === "check" ? "Проверяем..." : "Проверить подключение"}
+            </button>
+            <button className="btn-secondary" disabled={action !== null || !employee.maxConnected} onClick={disconnectMax} type="button">
+              <X size={17} />
+              {action === "disconnect" ? "Отключаем..." : "Отключить"}
+            </button>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <InfoRow label="Имя бота" value={employee.maxBotUsername ?? "Не подключен"} />
+          <InfoRow label="Статус" value={employee.maxConnected ? "Подключен" : "Отключен"} />
+          <InfoRow label="Подключен" value={employee.maxConnectedAt ?? "-"} />
         </div>
       </div>
     </section>
