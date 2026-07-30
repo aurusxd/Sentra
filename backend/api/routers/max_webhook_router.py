@@ -308,7 +308,6 @@ async def max_webhook(
             text=(
                 f"<b>Ваш MAX user_id:</b> <code>{escape(str(sender_id))}</code>\n"
                 f"<b>Ваш MAX chat_id:</b> <code>{escape(str(chat_id))}</code>\n\n"
-                "Для поля «Max chat ID админа» используйте значение chat_id."
             ),
         )
         return {"success": True}
