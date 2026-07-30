@@ -50,6 +50,23 @@ class MessageRepository:
         return result.scalar_one_or_none() is not None
 
     @provider.inject_session
+    async def message_exists(
+        self,
+        dialog_id: int,
+        sender_type: SenderType,
+        external_message_id: str,
+        session: AsyncSession,
+    ) -> bool:
+        result = await session.execute(
+            select(Message.id).where(
+                Message.dialog_id == dialog_id,
+                Message.sender_type == sender_type,
+                Message.external_message_id == external_message_id,
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    @provider.inject_session
     async def get_last_by_dialog_id(
         self,
         dialog_id: int,

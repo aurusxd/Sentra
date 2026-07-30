@@ -28,6 +28,13 @@ class MessageService:
             external_message_id=external_message_id,
         )
 
+    async def human_message_exists(self, dialog_id: int, external_message_id: str) -> bool:
+        return await self.repository.message_exists(
+            dialog_id=dialog_id,
+            sender_type=SenderType.HUMAN,
+            external_message_id=external_message_id,
+        )
+
     async def create_employee_message(
         self,
         dialog_id: int,

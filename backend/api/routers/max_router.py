@@ -87,6 +87,11 @@ async def check_max(
     token = decrypt_token(channel.token_encrypted)
 
     bot_info = await max_service.get_me(token=token)
+    await max_service.set_webhook(
+        token=token,
+        webhook_secret=channel.webhook_secret,
+        header_secret=telegram_webhook_header_secret(channel.webhook_secret),
+    )
 
     connected = channel.status == "connected"
 

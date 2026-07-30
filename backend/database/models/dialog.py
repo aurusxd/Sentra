@@ -44,6 +44,14 @@ class Dialog(Base):
 
     is_human_takeover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    max_operator_chat_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    max_operator_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    max_admin_notification_message_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

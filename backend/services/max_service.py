@@ -104,7 +104,7 @@ class MaxService:
             token,
             json={
                 "url": webhook_url,
-                "update_types": ["message_created", "bot_started"],
+                "update_types": ["message_created", "message_callback", "bot_started"],
                 "secret": header_secret,
             },
         )
@@ -138,16 +138,28 @@ class MaxService:
         token: str,
         chat_id: int | str,
         text: str,
+        *,
+        attachments: list[dict[str, Any]] | None = None,
+        reply_to_message_id: str | None = None,
     ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "text": text,
+            "format": "html",
+        }
+        if attachments is not None:
+            body["attachments"] = attachments
+        if reply_to_message_id:
+            body["link"] = {
+                "type": "reply",
+                "mid": reply_to_message_id,
+            }
+
         data = await self._request(
             "POST",
             "messages",
             token,
             params={"chat_id": chat_id},
-            json={
-                "text": text,
-                "format": "html",
-            },
+            json=body,
         )
 
         message = data.get("message")
@@ -158,3 +170,23 @@ class MaxService:
             )
 
         return message
+
+    async def answer_callback(
+        self,
+        token: str,
+        callback_id: str,
+        notification: str,
+    ) -> bool:
+        data = await self._request(
+            "POST",
+            "answers",
+            token,
+            params={"callback_id": callback_id},
+            json={"notification": notification},
+        )
+        if not data.get("success"):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to answer MAX callback: {data.get('message', 'unknown MAX API error')}",
+            )
+        return True

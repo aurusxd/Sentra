@@ -87,6 +87,67 @@ class DialogService:
         dialog.status = DialogStatus.RESOLVED
 
         return await self.repository.update(dialog=dialog)
+
+    async def save_max_admin_notification(
+        self,
+        dialog_id: int,
+        message_id: str,
+    ) -> Dialog:
+        dialog = await self.get_by_id(dialog_id=dialog_id)
+        dialog.max_admin_notification_message_id = message_id
+        return await self.repository.update(dialog=dialog)
+
+    async def get_by_max_admin_notification(
+        self,
+        channel_id: int,
+        message_id: str,
+    ) -> Dialog | None:
+        return await self.repository.get_by_max_admin_notification_id(
+            channel_id=channel_id,
+            notification_message_id=message_id,
+        )
+
+    async def get_active_max_operator_dialog(
+        self,
+        channel_id: int,
+        admin_chat_id: str,
+    ) -> Dialog | None:
+        return await self.repository.get_active_max_operator_dialog(
+            channel_id=channel_id,
+            admin_chat_id=admin_chat_id,
+        )
+
+    async def start_max_operator_session(
+        self,
+        dialog_id: int,
+        channel_id: int,
+        admin_chat_id: str,
+        admin_user_id: str,
+    ) -> Dialog:
+        await self.repository.clear_max_operator_sessions(
+            channel_id=channel_id,
+            admin_chat_id=admin_chat_id,
+            except_dialog_id=dialog_id,
+        )
+        dialog = await self.get_by_id(dialog_id=dialog_id)
+        dialog.max_operator_chat_id = admin_chat_id
+        dialog.max_operator_user_id = admin_user_id
+        dialog.is_human_takeover = True
+        dialog.status = DialogStatus.NEEDS_HUMAN
+        return await self.repository.update(dialog=dialog)
+
+    async def stop_max_operator_session(
+        self,
+        dialog_id: int,
+        *,
+        resolved: bool = False,
+    ) -> Dialog:
+        dialog = await self.get_by_id(dialog_id=dialog_id)
+        dialog.max_operator_chat_id = None
+        dialog.max_operator_user_id = None
+        dialog.is_human_takeover = False
+        dialog.status = DialogStatus.RESOLVED if resolved else DialogStatus.ACTIVE
+        return await self.repository.update(dialog=dialog)
     
 
 dialog_service = DialogService()
