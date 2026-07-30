@@ -301,6 +301,18 @@ async def max_webhook(
         window_seconds=60,
     )
 
+    if text.strip().lower() == "/myid":
+        await max_service.send_message(
+            token=token,
+            chat_id=chat_id,
+            text=(
+                f"<b>Ваш MAX user_id:</b> <code>{escape(str(sender_id))}</code>\n"
+                f"<b>Ваш MAX chat_id:</b> <code>{escape(str(chat_id))}</code>\n\n"
+                "Для поля «Max chat ID админа» используйте значение chat_id."
+            ),
+        )
+        return {"success": True}
+
     if employee.max_admin_chat_id and str(chat_id) == str(employee.max_admin_chat_id):
         return await handle_admin_message(
             message=message,
