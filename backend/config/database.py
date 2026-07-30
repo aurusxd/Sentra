@@ -7,7 +7,7 @@ class DbConfig(BaseModel):
     POSTGRES_USER: str = "sentra"
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "sentra"
-    POSTGRES_PORT: int = 5433
+    POSTGRES_PORT: int = 5432
     POSTGRES_HOST: str = "db"
 
     @property
