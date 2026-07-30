@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Sentra backup every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5m
+Unit=sentra-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,27 @@
+[Unit]
+Description=Sentra PostgreSQL and Chroma backup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=infinity
+TimeoutStopSec=120
+WorkingDirectory=/opt/sentra
+EnvironmentFile=/etc/sentra/backup.env
+ExecStart=/usr/bin/bash /opt/sentra/scripts/backup_databases.sh --once
+User=sentra-backup
+Group=docker
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/sentra
+
+[Install]
+WantedBy=multi-user.target

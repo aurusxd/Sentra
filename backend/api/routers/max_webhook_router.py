@@ -93,6 +93,37 @@ def get_reply_message_id(message: dict) -> str | None:
     return str(reply_id) if reply_id else None
 
 
+def get_callback_admin_identity(
+    update: dict,
+) -> tuple[int | str | None, int | str | None]:
+    """Extract the chat and user that triggered a MAX callback.
+
+    MAX puts the callback metadata in ``update.callback`` and the source
+    message in ``update.message``. Older payload examples also appeared with a
+    top-level ``chat_id``, so both forms are supported.
+    """
+    callback = update.get("callback") or {}
+    message = update.get("message") or {}
+    recipient = message.get("recipient") or {}
+    sender = message.get("sender") or {}
+
+    admin_chat_id = update.get("chat_id")
+    if admin_chat_id is None:
+        admin_chat_id = recipient.get("chat_id")
+    if admin_chat_id is None:
+        legacy_message = callback.get("message") or {}
+        admin_chat_id = (legacy_message.get("recipient") or {}).get("chat_id")
+
+    callback_user = callback.get("user") or {}
+    admin_user_id = callback_user.get("user_id")
+    if admin_user_id is None:
+        admin_user_id = sender.get("user_id")
+    if admin_user_id is None:
+        admin_user_id = (update.get("user") or {}).get("user_id")
+
+    return admin_chat_id, admin_user_id
+
+
 async def notify_max_admin_about_fallback(
     token: str,
     admin_chat_id: str | None,
@@ -141,14 +172,14 @@ async def handle_operator_callback(
     callback = update.get("callback") or {}
     callback_id = callback.get("callback_id")
     parsed = parse_max_operator_callback(str(callback.get("payload") or ""))
-    callback_message = callback.get("message") or {}
-    admin_chat_id = update.get("chat_id")
-    if admin_chat_id is None:
-        admin_chat_id = (callback_message.get("recipient") or {}).get("chat_id")
-    admin_user_id = (callback.get("user") or {}).get("user_id")
+    admin_chat_id, admin_user_id = get_callback_admin_identity(update)
 
     if not callback_id or not parsed:
-        log.warning("Invalid MAX operator callback payload")
+        log.warning(
+            "Invalid MAX operator callback payload: callback_id={}, parsed={}",
+            bool(callback_id),
+            bool(parsed),
+        )
         return {"success": True}
     if (
         admin_chat_id is None
@@ -156,6 +187,12 @@ async def handle_operator_callback(
         or not employee.max_admin_chat_id
         or str(admin_chat_id) != str(employee.max_admin_chat_id)
     ):
+        log.warning(
+            "Rejected MAX operator callback: chat_id_present={}, user_id_present={}, expected_admin_chat={}",
+            admin_chat_id is not None,
+            admin_user_id is not None,
+            bool(employee.max_admin_chat_id),
+        )
         await max_service.answer_callback(token, str(callback_id), "Недостаточно прав")
         return {"success": True}
 
@@ -193,6 +230,7 @@ async def handle_admin_message(
     sender_id: int | str,
     text: str,
 ) -> dict:
+    command = text.strip().lower()
     dialog = None
     reply_message_id = get_reply_message_id(message)
     if reply_message_id:
@@ -215,10 +253,15 @@ async def handle_admin_message(
         )
 
     if dialog is None:
+        status_text = (
+            "Нет активного операторского диалога."
+            if command in {"/готово", "/отмена"}
+            else "Сначала нажмите «Взять диалог» или ответьте на уведомление о клиенте."
+        )
         await send_operator_status(
             token,
             admin_chat_id,
-            "Сначала нажмите «Взять диалог» или ответьте на уведомление о клиенте.",
+            status_text,
         )
         return {"success": True}
 
@@ -226,7 +269,6 @@ async def handle_admin_message(
         await send_operator_status(token, admin_chat_id, "Этот диалог взят другим оператором.")
         return {"success": True}
 
-    command = text.strip().lower()
     if command == "/готово":
         await dialog_service.stop_max_operator_session(dialog.id, resolved=True)
         await send_operator_status(token, admin_chat_id, "✅ Диалог завершён. Следующее сообщение клиента снова обработает AI.")
