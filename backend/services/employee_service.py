@@ -38,7 +38,11 @@ class EmployeeService:
             **data.model_dump(),
         )
 
-        return await self.repository.create(employee=employee)
+        created = await self.repository.create(employee=employee)
+        return await self.repository.get_by_id(
+            employee_id=created.id,
+            owner_id=owner_id,
+        )
 
     async def update(
         self,
@@ -56,7 +60,11 @@ class EmployeeService:
         for key, value in values.items():
             setattr(employee, key, value)
 
-        return await self.repository.update(employee=employee)
+        updated = await self.repository.update(employee=employee)
+        return await self.repository.get_by_id(
+            employee_id=updated.id,
+            owner_id=owner_id,
+        )
 
     async def delete(self, employee_id: int, owner_id: int):
         employee = await self.get_by_id(

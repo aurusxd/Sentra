@@ -5,7 +5,12 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.database.enums import EmployeeStatus
+from backend.database.enums import (
+    ChannelStatus,
+    ChannelType,
+    DialogStatus,
+    EmployeeStatus,
+)
 from backend.database.models.base import Base
 
 if TYPE_CHECKING:
@@ -81,3 +86,62 @@ class Employee(Base):
         back_populates="employee",
         cascade="all, delete-orphan",
     )
+
+    def _channel_by_type(self, channel_type: ChannelType) -> "Channel | None":
+        return next(
+            (channel for channel in self.channels if channel.type == channel_type),
+            None,
+        )
+
+    @property
+    def telegram_connected(self) -> bool:
+        channel = self._channel_by_type(ChannelType.TELEGRAM)
+        return channel is not None and channel.status == ChannelStatus.CONNECTED
+
+    @property
+    def telegram_bot_username(self) -> str | None:
+        channel = self._channel_by_type(ChannelType.TELEGRAM)
+        return channel.external_username if channel is not None else None
+
+    @property
+    def telegram_connected_at(self) -> datetime | None:
+        channel = self._channel_by_type(ChannelType.TELEGRAM)
+        return channel.connected_at if channel is not None else None
+
+    @property
+    def max_connected(self) -> bool:
+        channel = self._channel_by_type(ChannelType.MAX)
+        return channel is not None and channel.status == ChannelStatus.CONNECTED
+
+    @property
+    def max_bot_username(self) -> str | None:
+        channel = self._channel_by_type(ChannelType.MAX)
+        return channel.external_username if channel is not None else None
+
+    @property
+    def max_connected_at(self) -> datetime | None:
+        channel = self._channel_by_type(ChannelType.MAX)
+        return channel.connected_at if channel is not None else None
+
+    @property
+    def active_dialogs_count(self) -> int:
+        if hasattr(self, "_active_dialogs_count"):
+            return self._active_dialogs_count
+        return sum(dialog.status != DialogStatus.RESOLVED for dialog in self.dialogs)
+
+    @property
+    def dialogs_count(self) -> int:
+        if hasattr(self, "_dialogs_count"):
+            return self._dialogs_count
+        return len(self.dialogs)
+
+    @property
+    def human_pending_count(self) -> int:
+        if hasattr(self, "_human_pending_count"):
+            return self._human_pending_count
+        return sum(dialog.status == DialogStatus.NEEDS_HUMAN for dialog in self.dialogs)
+
+    def set_dialog_counts(self, total: int, active: int, human_pending: int) -> None:
+        self._dialogs_count = total
+        self._active_dialogs_count = active
+        self._human_pending_count = human_pending

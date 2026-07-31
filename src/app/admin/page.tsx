@@ -63,6 +63,15 @@ type EmployeeResponse = {
   status: EmployeeApiStatus;
   created_at: string;
   updated_at: string | null;
+  telegram_connected: boolean;
+  telegram_bot_username: string | null;
+  telegram_connected_at: string | null;
+  max_connected: boolean;
+  max_bot_username: string | null;
+  max_connected_at: string | null;
+  dialogs_count: number;
+  active_dialogs_count: number;
+  human_pending_count: number;
 };
 
 type TelegramChannelResponse = {
@@ -144,6 +153,7 @@ type Employee = {
   maxConnected: boolean;
   maxBotUsername?: string;
   maxConnectedAt?: string;
+  dialogsCount: number;
   activeDialogs: number;
   humanPending: number;
   documents: KnowledgeDocument[];
@@ -336,10 +346,15 @@ function mapEmployee(employee: EmployeeResponse): Employee {
     telegramAdminChatId: employee.telegram_admin_chat_id ?? "",
     maxAdminChatId: employee.max_admin_chat_id ?? "",
     status: mapEmployeeStatus(employee.status),
-    telegramConnected: false,
-    maxConnected: false,
-    activeDialogs: 0,
-    humanPending: 0,
+    telegramConnected: employee.telegram_connected,
+    telegramBotUsername: formatTelegramUsername(employee.telegram_bot_username),
+    telegramConnectedAt: employee.telegram_connected_at ?? undefined,
+    maxConnected: employee.max_connected,
+    maxBotUsername: formatTelegramUsername(employee.max_bot_username),
+    maxConnectedAt: employee.max_connected_at ?? undefined,
+    dialogsCount: employee.dialogs_count,
+    activeDialogs: employee.active_dialogs_count,
+    humanPending: employee.human_pending_count,
     documents: [],
     conversations: [],
   };
@@ -357,7 +372,16 @@ function mergeEmployeeResponse(current: Employee, employee: EmployeeResponse): E
     fallbackMessage: employee.fallback_message,
     telegramAdminChatId: employee.telegram_admin_chat_id ?? current.telegramAdminChatId,
     maxAdminChatId: employee.max_admin_chat_id ?? current.maxAdminChatId,
-    status: mapEmployeeStatus(employee.status)
+    status: mapEmployeeStatus(employee.status),
+    telegramConnected: employee.telegram_connected,
+    telegramBotUsername: formatTelegramUsername(employee.telegram_bot_username),
+    telegramConnectedAt: employee.telegram_connected_at ?? undefined,
+    maxConnected: employee.max_connected,
+    maxBotUsername: formatTelegramUsername(employee.max_bot_username),
+    maxConnectedAt: employee.max_connected_at ?? undefined,
+    dialogsCount: employee.dialogs_count,
+    activeDialogs: employee.active_dialogs_count,
+    humanPending: employee.human_pending_count
   };
 }
 
@@ -461,6 +485,7 @@ export default function AdminPage() {
       status: "Enabled",
       telegramConnected: false,
       maxConnected: false,
+      dialogsCount: 0,
       activeDialogs: 0,
       humanPending: 0,
       documents: [],
@@ -1029,7 +1054,7 @@ function Overview({
         <div className="grid gap-4 md:grid-cols-2">
           <SmallStat label="Telegram" value={employee.telegramConnected ? "Подключен" : "Не подключен"} />
           <SmallStat label="Документы" value={String(employee.documents.length)} />
-          <SmallStat label="Диалоги" value={String(employee.conversations.length)} />
+          <SmallStat label="Диалоги" value={String(employee.dialogsCount)} />
           <SmallStat label="Ждут человека" value={String(employee.humanPending)} />
         </div>
         <div className="mt-6 flex gap-3">
@@ -1593,6 +1618,7 @@ function Conversations({
   function setConversations(conversations: Conversation[]) {
     onUpdate((current) => ({
       ...current,
+      dialogsCount: conversations.length,
       activeDialogs: conversations.filter((conversation) => conversation.status !== "Closed").length,
       humanPending: conversations.filter((conversation) => conversation.status === "Human" || conversation.status === "Needs human").length,
       conversations
@@ -1605,6 +1631,7 @@ function Conversations({
 
       return {
         ...current,
+        dialogsCount: conversations.length,
         activeDialogs: conversations.filter((conversation) => conversation.status !== "Closed").length,
         humanPending: conversations.filter((conversation) => conversation.status === "Human" || conversation.status === "Needs human").length,
         conversations

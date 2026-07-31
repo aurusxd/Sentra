@@ -49,6 +49,15 @@ class EmployeeRead(BaseModel):
     status: EmployeeStatus
     created_at: datetime
     updated_at: datetime | None
+    telegram_connected: bool = False
+    telegram_bot_username: str | None = None
+    telegram_connected_at: datetime | None = None
+    max_connected: bool = False
+    max_bot_username: str | None = None
+    max_connected_at: datetime | None = None
+    dialogs_count: int = 0
+    active_dialogs_count: int = 0
+    human_pending_count: int = 0
 
     model_config = {
         "from_attributes": True
