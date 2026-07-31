@@ -117,6 +117,16 @@ class DialogService:
             admin_chat_id=admin_chat_id,
         )
 
+    async def get_single_pending_max_operator_dialog(
+        self,
+        channel_id: int,
+    ) -> Dialog | None:
+        dialogs = await self.repository.get_pending_max_operator_dialogs(
+            channel_id=channel_id,
+            limit=2,
+        )
+        return dialogs[0] if len(dialogs) == 1 else None
+
     async def start_max_operator_session(
         self,
         dialog_id: int,

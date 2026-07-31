@@ -111,6 +111,135 @@ class MaxOperatorCallbackTests(unittest.IsolatedAsyncioTestCase):
         )
         send_status.assert_awaited_once()
 
+    async def test_callback_uses_configured_chat_for_original_notification(self) -> None:
+        update = {
+            "update_type": "message_callback",
+            "message": {
+                "body": {"mid": "notification-55"},
+            },
+            "callback": {
+                "callback_id": "callback-55",
+                "payload": "signed-payload",
+                "user": {"user_id": 7055},
+            },
+        }
+        channel = SimpleNamespace(id=31)
+        employee = SimpleNamespace(id=41, max_admin_chat_id="9003")
+        dialog = SimpleNamespace(
+            id=55,
+            channel_id=31,
+            employee_id=41,
+            client_name="Пётр",
+            max_admin_notification_message_id="notification-55",
+        )
+        start_session = AsyncMock(return_value=dialog)
+
+        with (
+            patch.object(
+                max_webhook_router,
+                "parse_max_operator_callback",
+                return_value=("take", 55),
+            ),
+            patch.object(
+                max_webhook_router.dialog_service,
+                "get_by_id",
+                AsyncMock(return_value=dialog),
+            ),
+            patch.object(
+                max_webhook_router.dialog_service,
+                "start_max_operator_session",
+                start_session,
+            ),
+            patch.object(
+                max_webhook_router.max_service,
+                "answer_callback",
+                AsyncMock(return_value=True),
+            ),
+            patch.object(
+                max_webhook_router,
+                "send_operator_status",
+                AsyncMock(),
+            ),
+        ):
+            result = await max_webhook_router.handle_operator_callback(
+                update=update,
+                channel=channel,
+                employee=employee,
+                token="token",
+            )
+
+        self.assertEqual(result, {"success": True})
+        start_session.assert_awaited_once_with(
+            dialog_id=55,
+            channel_id=31,
+            admin_chat_id="9003",
+            admin_user_id="7055",
+        )
+
+    async def test_first_admin_message_auto_takes_single_pending_dialog(self) -> None:
+        pending_dialog = SimpleNamespace(id=54, client_name="Анна")
+        active_dialog = SimpleNamespace(
+            id=54,
+            client_name="Анна",
+            client_external_id="client-chat-54",
+            max_operator_user_id="7006",
+        )
+        start_session = AsyncMock(return_value=active_dialog)
+        send_status = AsyncMock()
+        send_message = AsyncMock(return_value={"body": {"mid": "client-message-54"}})
+
+        with (
+            patch.object(
+                max_webhook_router.dialog_service,
+                "get_active_max_operator_dialog",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                max_webhook_router.dialog_service,
+                "get_single_pending_max_operator_dialog",
+                AsyncMock(return_value=pending_dialog),
+            ),
+            patch.object(
+                max_webhook_router.dialog_service,
+                "start_max_operator_session",
+                start_session,
+            ),
+            patch.object(max_webhook_router, "send_operator_status", send_status),
+            patch.object(
+                max_webhook_router.message_service,
+                "human_message_exists",
+                AsyncMock(return_value=False),
+            ),
+            patch.object(max_webhook_router.max_service, "send_message", send_message),
+            patch.object(
+                max_webhook_router.message_service,
+                "create_human_message",
+                AsyncMock(),
+            ),
+        ):
+            result = await max_webhook_router.handle_admin_message(
+                message={"body": {"mid": "admin-message-54", "text": "Добрый день"}},
+                channel=SimpleNamespace(id=31),
+                token="token",
+                admin_chat_id="9003",
+                sender_id=7006,
+                text="Добрый день",
+            )
+
+        self.assertEqual(result, {"success": True})
+        start_session.assert_awaited_once_with(
+            dialog_id=54,
+            channel_id=31,
+            admin_chat_id="9003",
+            admin_user_id="7006",
+        )
+        send_message.assert_awaited_once_with(
+            token="token",
+            chat_id="client-chat-54",
+            text="Добрый день",
+        )
+        send_status.assert_awaited_once()
+
     async def test_operator_message_is_forwarded_after_takeover(self) -> None:
         dialog = SimpleNamespace(
             id=52,

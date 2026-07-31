@@ -112,6 +112,26 @@ class DialogRepository:
         return result.scalar_one_or_none()
 
     @provider.inject_session
+    async def get_pending_max_operator_dialogs(
+        self,
+        channel_id: int,
+        session: AsyncSession,
+        limit: int = 2,
+    ) -> list[Dialog]:
+        result = await session.execute(
+            select(Dialog)
+            .where(
+                Dialog.channel_id == channel_id,
+                Dialog.status == DialogStatus.NEEDS_HUMAN,
+                Dialog.is_human_takeover.is_(False),
+                Dialog.max_admin_notification_message_id.is_not(None),
+            )
+            .order_by(Dialog.updated_at.desc(), Dialog.id.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    @provider.inject_session
     async def clear_max_operator_sessions(
         self,
         channel_id: int,

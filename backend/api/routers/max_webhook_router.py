@@ -181,11 +181,30 @@ async def handle_operator_callback(
             bool(parsed),
         )
         return {"success": True}
+
+    action, dialog_id = parsed
+    dialog = await dialog_service.get_by_id(dialog_id=dialog_id)
+    if dialog.channel_id != channel.id or dialog.employee_id != employee.id:
+        await max_service.answer_callback(token, str(callback_id), "Диалог не найден")
+        return {"success": True}
+
+    configured_admin_chat_id = (
+        str(employee.max_admin_chat_id) if employee.max_admin_chat_id else None
+    )
+    callback_message_id = get_message_id(update.get("message") or {})
+    if (
+        admin_chat_id is None
+        and configured_admin_chat_id
+        and callback_message_id
+        and callback_message_id == dialog.max_admin_notification_message_id
+    ):
+        admin_chat_id = configured_admin_chat_id
+
     if (
         admin_chat_id is None
         or admin_user_id is None
-        or not employee.max_admin_chat_id
-        or str(admin_chat_id) != str(employee.max_admin_chat_id)
+        or not configured_admin_chat_id
+        or str(admin_chat_id) != configured_admin_chat_id
     ):
         log.warning(
             "Rejected MAX operator callback: chat_id_present={}, user_id_present={}, expected_admin_chat={}",
@@ -194,12 +213,6 @@ async def handle_operator_callback(
             bool(employee.max_admin_chat_id),
         )
         await max_service.answer_callback(token, str(callback_id), "Недостаточно прав")
-        return {"success": True}
-
-    action, dialog_id = parsed
-    dialog = await dialog_service.get_by_id(dialog_id=dialog_id)
-    if dialog.channel_id != channel.id or dialog.employee_id != employee.id:
-        await max_service.answer_callback(token, str(callback_id), "Диалог не найден")
         return {"success": True}
 
     if action == "take":
@@ -251,6 +264,23 @@ async def handle_admin_message(
             channel_id=channel.id,
             admin_chat_id=admin_chat_id,
         )
+
+    if dialog is None and command not in {"/готово", "/отмена"}:
+        pending_dialog = await dialog_service.get_single_pending_max_operator_dialog(
+            channel_id=channel.id,
+        )
+        if pending_dialog is not None:
+            dialog = await dialog_service.start_max_operator_session(
+                dialog_id=pending_dialog.id,
+                channel_id=channel.id,
+                admin_chat_id=admin_chat_id,
+                admin_user_id=str(sender_id),
+            )
+            await send_operator_status(
+                token,
+                admin_chat_id,
+                f"✅ Диалог с {escape(dialog.client_name or 'клиентом')} принят автоматически.",
+            )
 
     if dialog is None:
         status_text = (
