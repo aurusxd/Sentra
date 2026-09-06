@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/telegram/webhook/:path*",
+      "destination": "https://api.sentra.fun/telegram/webhook/:path*"
+    },
+    {
+      "source": "/employees/:path*",
+      "destination": "https://api.sentra.fun/employees/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://api.sentra.fun/api/:path*"
+    }
+  ]
+}
